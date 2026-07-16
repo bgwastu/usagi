@@ -1,3 +1,5 @@
+import { UsagiApp } from "@/components/usagi-app";
+
 export default function Home() {
-  return <div> </div>;
+  return <UsagiApp />;
 }
