@@ -1,0 +1,99 @@
+############################################################
+# Production-ready .dockerignore for a Next.js (Bun) app
+############################################################
+
+# Dependencies (installed inside Docker)
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Next.js / build outputs
+.next/
+out/
+dist/
+build/
+.vercel/
+
+# Tests
+coverage/
+.nyc_output/
+__tests__/
+__mocks__/
+*.test.*
+*.spec.*
+playwright-report/
+test-results/
+vitest.config.*
+jest.config.*
+playwright.config.*
+
+# Local development and editor files
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.log
+
+# Environment variables
+.env
+.env*
+.env*.local
+.env.development
+.env.test
+.env.production.local
+
+# Local account store (cookies, API keys, OAuth tokens)
+data/
+
+# Docker / compose (not needed in build context)
+Dockerfile*
+.dockerignore
+compose.yaml
+compose.yml
+docker-compose*.yaml
+docker-compose*.yml
+
+# Local tooling / fixtures (not needed in image)
+scripts/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Cache / temp
+.cache/
+.parcel-cache/
+.eslintcache/
+.swc/
+.turbo/
+.tmp/
+.temp/
+
+# TypeScript build metadata
+*.tsbuildinfo
+
+# Sensitive / unnecessary config
+*.pem
+.editorconfig
+.prettierrc*
+prettier.config.*
+.eslintrc*
+eslint.config.*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# AI tooling
+.cursor/
+.cursorrules
+.agents/
+.claude/
