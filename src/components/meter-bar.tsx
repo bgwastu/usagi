@@ -1,3 +1,7 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatResetCountdown, meterFillClass } from "@/lib/format";
 import { clampPercent, remainingPercent } from "@/lib/rate-limit-window";
 import type { UsageMeter } from "@/lib/types";
@@ -6,6 +10,69 @@ type MeterBarProps = {
   meter: UsageMeter;
   compact?: boolean;
 };
+
+type MeterTrackProps = {
+  usedPct: number;
+  remainingPct: number;
+  label: string;
+};
+
+function MeterTrack({ usedPct, remainingPct, label }: MeterTrackProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+
+  function showTip() {
+    const el = trackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setTip({ x: rect.left + rect.width / 2, y: rect.top });
+  }
+
+  function hideTip() {
+    setTip(null);
+  }
+
+  const usedLabel = `${Math.round(usedPct)}% used`;
+
+  return (
+    <>
+      <div
+        ref={trackRef}
+        className="relative -my-1 cursor-default py-1"
+        role="meter"
+        aria-label={`${label}: ${usedLabel}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(remainingPct)}
+        onPointerEnter={showTip}
+        onPointerLeave={hideTip}
+      >
+        <div className="h-1.5 overflow-hidden rounded-full bg-meter-track">
+          <div
+            className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(usedPct)}`}
+            style={{ width: `${remainingPct}%` }}
+          />
+        </div>
+      </div>
+      {tip != null
+        ? createPortal(
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-50 rounded-md border border-rule bg-ink px-2 py-1 font-outlier text-xs tabular-nums text-paper shadow-[0_8px_20px_oklch(22%_0.02_40/0.18)] motion-safe:animate-[fade-in_140ms_var(--ease-out)_both]"
+              style={{
+                left: tip.x,
+                top: tip.y,
+                transform: "translate(-50%, calc(-100% - 8px))",
+              }}
+            >
+              {usedLabel}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
 
 export function MeterBar({ meter, compact = false }: MeterBarProps) {
   if (meter.kind === "credits" || meter.kind === "balance") {
@@ -49,19 +116,11 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           </span>
         </div>
         {remainingPct != null && usedPct != null ? (
-          <div
-            className="h-1.5 overflow-hidden rounded-full bg-meter-track"
-            role="meter"
-            aria-label={`${meter.label} left`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(remainingPct)}
-          >
-            <div
-              className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(usedPct)}`}
-              style={{ width: `${remainingPct}%` }}
-            />
-          </div>
+          <MeterTrack
+            usedPct={usedPct}
+            remainingPct={remainingPct}
+            label={meter.label}
+          />
         ) : null}
         {!compact && hasLimit && meter.resetsAt != null ? (
           <p className="m-0 text-xs text-ink-2">
@@ -90,19 +149,11 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           {Math.round(remaining)}% left
         </span>
       </div>
-      <div
-        className="h-1.5 overflow-hidden rounded-full bg-meter-track"
-        role="meter"
-        aria-label={`${meter.label} left`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(remaining)}
-      >
-        <div
-          className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(used)}`}
-          style={{ width: `${remaining}%` }}
-        />
-      </div>
+      <MeterTrack
+        usedPct={used}
+        remainingPct={remaining}
+        label={meter.label}
+      />
       {!compact ? (
         <p className="m-0 text-xs text-ink-2">
           resets in {formatResetCountdown(meter.resetsAt)}
