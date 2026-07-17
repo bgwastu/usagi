@@ -213,7 +213,7 @@ export function UsagiApp() {
           </button>
         </header>
 
-        <main className="flex-1 pt-4 pb-12">
+        <main className="flex-1 pb-12">
           {loading ? (
             <AccountsLoading />
           ) : loadError ? (
