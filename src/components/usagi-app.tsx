@@ -1,12 +1,20 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
-import { AccountTile } from "@/components/account-tile";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { AccountsBoard } from "@/components/accounts-board";
 import {
   AccountWizard,
   type WizardDraft,
 } from "@/components/account-wizard";
 import { AccountsLoading } from "@/components/accounts-loading";
+import { reorderCardsByIds } from "@/lib/board-layout";
 import type { AccountCardModel, ComposioPlanId } from "@/lib/types";
 
 const REFRESH_MS = 5_000;
@@ -14,35 +22,14 @@ const REFRESH_MS = 5_000;
 const addBtnClass =
   "shrink-0 cursor-pointer whitespace-nowrap rounded-md border border-accent bg-accent px-4 py-2.5 font-display text-sm font-semibold text-accent-ink transition-[transform,filter] duration-[220ms] ease-[var(--ease-out)] hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
 
-function reorderCards(
-  cards: AccountCardModel[],
-  fromIndex: number,
-  toIndex: number,
-): AccountCardModel[] {
-  if (
-    fromIndex === toIndex ||
-    fromIndex < 0 ||
-    toIndex < 0 ||
-    fromIndex >= cards.length ||
-    toIndex >= cards.length
-  ) {
-    return cards;
-  }
-  const next = [...cards];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
-}
-
 export function UsagiApp() {
   const [cards, setCards] = useState<AccountCardModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [overIndex, setOverIndex] = useState<number | null>(null);
   const [, setClock] = useState(() => Date.now());
+  const pauseRefreshRef = useRef(false);
 
   const editingCard = useMemo(
     () => cards.find((card) => card.account.id === editingId) ?? null,
@@ -50,6 +37,7 @@ export function UsagiApp() {
   );
 
   const refresh = useCallback(async () => {
+    if (pauseRefreshRef.current) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") {
       return;
     }
@@ -60,6 +48,7 @@ export function UsagiApp() {
         error?: string;
       };
       startTransition(() => {
+        if (pauseRefreshRef.current) return;
         if (!res.ok) {
           setLoadError(json.error ?? "Failed to load accounts");
           setLoading(false);
@@ -72,6 +61,7 @@ export function UsagiApp() {
       });
     } catch (error) {
       startTransition(() => {
+        if (pauseRefreshRef.current) return;
         setLoadError(error instanceof Error ? error.message : "Network error");
         setLoading(false);
       });
@@ -111,29 +101,22 @@ export function UsagiApp() {
     setEditingId(null);
   }
 
-  function handleDragStart(index: number) {
-    setDragIndex(index);
-    setOverIndex(index);
+  function handleDragActiveChange(active: boolean) {
+    pauseRefreshRef.current = active;
   }
 
-  function handleDragOver(index: number) {
-    setOverIndex((current) => (current === index ? current : index));
-  }
-
-  async function handleDragEnd() {
-    if (dragIndex != null && overIndex != null && dragIndex !== overIndex) {
-      const next = reorderCards(cards, dragIndex, overIndex);
-      setCards(next);
+  async function handleReorder(orderedIds: string[]) {
+    pauseRefreshRef.current = true;
+    setCards((current) => reorderCardsByIds(current, orderedIds));
+    try {
       await fetch("/api/accounts/order", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderedIds: next.map((card) => card.account.id),
-        }),
+        body: JSON.stringify({ orderedIds }),
       });
+    } finally {
+      pauseRefreshRef.current = false;
     }
-    setDragIndex(null);
-    setOverIndex(null);
   }
 
   async function handleSubmit(draft: WizardDraft) {
@@ -214,70 +197,52 @@ export function UsagiApp() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex items-center justify-between gap-6 px-[clamp(1rem,3vw,2rem)] py-6 max-[40rem]:items-start">
-        <div className="min-w-0">
-          <p className="m-0 font-display text-[clamp(2rem,4vw+0.5rem,2.75rem)] leading-none font-bold tracking-[-0.045em] text-ink">
-            Usagi
-            <span
-              className="ml-1 inline-block size-[0.45em] translate-y-[0.12em] rounded-sm bg-accent align-baseline"
-              aria-hidden
-            />
-          </p>
-          <p className="mt-1 text-sm text-ink-2">
-            Provider usage at a glance
-          </p>
-        </div>
-        <button type="button" className={addBtnClass} onClick={openCreate}>
-          Add account
-        </button>
-      </header>
-
-      <main className="flex-1 px-[clamp(1rem,3vw,2rem)] pt-4 pb-12">
-        {loading ? (
-          <AccountsLoading />
-        ) : loadError ? (
-          <p className="text-danger">{loadError}</p>
-        ) : cards.length === 0 ? (
-          <section className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center">
-            <h1 className="m-0 font-display text-[clamp(2.25rem,4vw+0.5rem,3rem)] font-semibold tracking-[-0.03em]">
-              No accounts yet
-            </h1>
-            <p className="m-0 text-ink-2">
-              Add a provider account to watch quotas, credits, and reset windows
-              from one board.
-            </p>
-            <button type="button" className={addBtnClass} onClick={openCreate}>
-              Add account
-            </button>
-          </section>
-        ) : (
-          <section
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:auto-rows-[minmax(11rem,auto)] md:grid-cols-4"
-            aria-label="Provider accounts"
-            onDragOver={(event) => event.preventDefault()}
-          >
-            {cards.map((card, index) => (
-              <AccountTile
-                key={card.account.id}
-                card={card}
-                index={index}
-                isDragging={dragIndex === index}
-                isDragOver={
-                  overIndex === index &&
-                  dragIndex != null &&
-                  dragIndex !== index
-                }
-                onOpen={openEdit}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={() => {
-                  void handleDragEnd();
-                }}
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-[clamp(1rem,3vw,2rem)]">
+        <header className="flex items-center justify-between gap-6 py-6 max-[40rem]:items-start">
+          <div className="min-w-0">
+            <p className="m-0 font-display text-[clamp(2rem,4vw+0.5rem,2.75rem)] leading-none font-bold tracking-[-0.045em] text-ink">
+              Usagi
+              <span
+                className="ml-1 inline-block size-[0.45em] translate-y-[0.12em] rounded-sm bg-accent align-baseline"
+                aria-hidden
               />
-            ))}
-          </section>
-        )}
-      </main>
+            </p>
+          </div>
+          <button type="button" className={addBtnClass} onClick={openCreate}>
+            Add account
+          </button>
+        </header>
+
+        <main className="flex-1 pt-4 pb-12">
+          {loading ? (
+            <AccountsLoading />
+          ) : loadError ? (
+            <p className="text-danger">{loadError}</p>
+          ) : cards.length === 0 ? (
+            <section className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center">
+              <h1 className="m-0 font-display text-[clamp(2.25rem,4vw+0.5rem,3rem)] font-semibold tracking-[-0.03em]">
+                No accounts yet
+              </h1>
+              <p className="m-0 text-ink-2">
+                Add a provider account to watch quotas, credits, and reset
+                windows from one board.
+              </p>
+              <button type="button" className={addBtnClass} onClick={openCreate}>
+                Add account
+              </button>
+            </section>
+          ) : (
+            <AccountsBoard
+              cards={cards}
+              onOpen={openEdit}
+              onReorder={(orderedIds) => {
+                void handleReorder(orderedIds);
+              }}
+              onDragActiveChange={handleDragActiveChange}
+            />
+          )}
+        </main>
+      </div>
 
       <AccountWizard
         key={editingId ?? "create"}

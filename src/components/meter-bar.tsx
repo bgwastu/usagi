@@ -21,26 +21,31 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
     const remainingPct =
       usedPct != null ? remainingPercent(usedPct) : null;
 
+    const valueText =
+      hasLimit && meter.remaining != null
+        ? meter.unit === "USD"
+          ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+          : compact
+            ? `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()}`
+            : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()} left`
+        : meter.used != null
+          ? meter.unit === "USD"
+            ? `$${meter.used.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+            : `${meter.used.toLocaleString()} used`
+          : meter.remaining != null
+            ? `${[meter.remaining.toLocaleString(), meter.unit, "left"].filter(Boolean).join(" ")}`
+            : remainingPct != null
+              ? `${Math.round(remainingPct)}% left`
+              : "—";
+
     return (
-      <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-xs tracking-[0.04em] text-muted uppercase">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="shrink-0 text-xs tracking-[0.04em] text-muted uppercase">
             {meter.label}
           </span>
-          <span className="font-outlier text-sm tabular-nums text-ink">
-            {hasLimit && meter.remaining != null
-              ? meter.unit === "USD"
-                ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })} left`
-                : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()} left`
-              : meter.used != null
-                ? meter.unit === "USD"
-                  ? `$${meter.used.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
-                  : `${meter.used.toLocaleString()} used`
-                : meter.remaining != null
-                  ? `${[meter.remaining.toLocaleString(), meter.unit, "left"].filter(Boolean).join(" ")}`
-                  : remainingPct != null
-                    ? `${Math.round(remainingPct)}% left`
-                    : "—"}
+          <span className="min-w-0 truncate text-right font-outlier text-xs tabular-nums text-ink sm:text-sm">
+            {valueText}
           </span>
         </div>
         {remainingPct != null && usedPct != null ? (
