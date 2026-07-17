@@ -1,3 +1,8 @@
+import {
+  clampPercent,
+  labelCodexRateLimitWindow,
+  resetAtMs,
+} from "@/lib/rate-limit-window";
 import type { Account, AccountUsage, CodexCredentials } from "@/lib/types";
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -7,19 +12,18 @@ const REDIRECT_URI = "http://localhost:1455/auth/callback";
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 const REFRESH_LEAD_MS = 24 * 60 * 60 * 1000;
 
+type CodexRateLimitWindow = {
+  used_percent?: number;
+  reset_at?: number;
+  reset_after_seconds?: number;
+  limit_window_seconds?: number;
+};
+
 type CodexUsageResponse = {
   plan_type?: string;
   rate_limit?: {
-    primary_window?: {
-      used_percent?: number;
-      reset_at?: number;
-      limit_window_seconds?: number;
-    };
-    secondary_window?: {
-      used_percent?: number;
-      reset_at?: number;
-      limit_window_seconds?: number;
-    };
+    primary_window?: CodexRateLimitWindow;
+    secondary_window?: CodexRateLimitWindow;
   };
 };
 
@@ -222,27 +226,36 @@ export async function fetchCodexUsage(
   const meters = [];
 
   if (primary?.used_percent != null) {
+    const windowSeconds = primary.limit_window_seconds;
     meters.push({
+      // Slot ids stay stable; labels come from limit_window_seconds.
       id: "session",
-      label: "5-hour",
+      label: labelCodexRateLimitWindow({
+        windowSeconds,
+        isSecondary: false,
+        resetAtSec: primary.reset_at,
+        otherResetAtSec: secondary?.reset_at,
+      }),
       kind: "window" as const,
-      usedPercent: primary.used_percent,
-      windowSeconds: primary.limit_window_seconds,
-      resetsAt: primary.reset_at
-        ? primary.reset_at * (primary.reset_at < 1e12 ? 1000 : 1)
-        : null,
+      usedPercent: clampPercent(primary.used_percent),
+      windowSeconds,
+      resetsAt: resetAtMs(primary.reset_at, primary.reset_after_seconds),
     });
   }
   if (secondary?.used_percent != null) {
+    const windowSeconds = secondary.limit_window_seconds;
     meters.push({
       id: "weekly",
-      label: "Weekly",
+      label: labelCodexRateLimitWindow({
+        windowSeconds,
+        isSecondary: true,
+        resetAtSec: secondary.reset_at,
+        otherResetAtSec: primary?.reset_at,
+      }),
       kind: "window" as const,
-      usedPercent: secondary.used_percent,
-      windowSeconds: secondary.limit_window_seconds,
-      resetsAt: secondary.reset_at
-        ? secondary.reset_at * (secondary.reset_at < 1e12 ? 1000 : 1)
-        : null,
+      usedPercent: clampPercent(secondary.used_percent),
+      windowSeconds,
+      resetsAt: resetAtMs(secondary.reset_at, secondary.reset_after_seconds),
     });
   }
 

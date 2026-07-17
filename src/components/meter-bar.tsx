@@ -1,4 +1,5 @@
 import { formatResetCountdown, meterFillClass } from "@/lib/format";
+import { clampPercent, remainingPercent } from "@/lib/rate-limit-window";
 import type { UsageMeter } from "@/lib/types";
 
 type MeterBarProps = {
@@ -74,7 +75,9 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
     return null;
   }
 
-  const pct = Math.min(100, Math.max(0, meter.usedPercent));
+  // API / providers store used%; ChatGPT & Codex UIs show remaining.
+  const used = clampPercent(meter.usedPercent);
+  const remaining = remainingPercent(used);
 
   return (
     <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
@@ -83,25 +86,25 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           {meter.label}
         </span>
         <span className="font-outlier text-sm tabular-nums text-ink">
-          {Math.round(pct)}%
+          {Math.round(remaining)}%
         </span>
       </div>
       <div
         className="h-1.5 overflow-hidden rounded-full bg-meter-track"
         role="meter"
-        aria-label={`${meter.label} usage`}
+        aria-label={`${meter.label} remaining`}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
+        aria-valuenow={Math.round(remaining)}
       >
         <div
-          className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(pct)}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(used)}`}
+          style={{ width: `${used}%` }}
         />
       </div>
       {!compact ? (
         <p className="m-0 text-xs text-ink-2">
-          resets in {formatResetCountdown(meter.resetsAt)}
+          remaining · resets in {formatResetCountdown(meter.resetsAt)}
         </p>
       ) : null}
     </div>
