@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { listAccounts, saveAccount } from "@/lib/db";
 import { fetchUsageForAccount } from "@/lib/usage";
-import { DEFAULT_SPAN, type Account, type ProviderId } from "@/lib/types";
+import {
+  DEFAULT_SPAN,
+  type Account,
+  type ComposioPlanId,
+  type ProviderId,
+} from "@/lib/types";
 import { randomUUID } from "node:crypto";
 import {
   exchangeCodexCode,
@@ -48,6 +53,13 @@ type CreateBody =
       name: string;
       apiKey: string;
       keyId?: string;
+      span?: Account["span"];
+    }
+  | {
+      provider: "composio";
+      name: string;
+      apiKey: string;
+      plan?: ComposioPlanId;
       span?: Account["span"];
     }
   | {
@@ -106,6 +118,21 @@ export async function POST(request: Request) {
         credentials: {
           apiKey: body.apiKey.trim(),
           ...(keyId ? { keyId } : {}),
+        },
+        authStatus: "ok",
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else if (body.provider === "composio") {
+      const plan = body.plan;
+      account = {
+        id: randomUUID(),
+        provider: "composio",
+        name: body.name.trim(),
+        span: body.span ?? DEFAULT_SPAN.composio,
+        credentials: {
+          apiKey: body.apiKey.trim(),
+          ...(plan ? { plan } : {}),
         },
         authStatus: "ok",
         createdAt: now,

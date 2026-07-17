@@ -27,6 +27,7 @@ Optional: set `ENCRYPTION_KEY` to encrypt that file at rest. If decryption fails
 - **OpenCode Go** — session cookie; workspace ID optional · 5-hour + weekly (+ monthly if present)
 - **Tavily** — API key · plan / key credits
 - **Exa** — Team Management service key · 3d / 7d / 30d spend (optional key ID)
+- **Composio** — Org API key (`oak_…`) · monthly tool-call / pro-tool quota bars
 
 ## Notes
 

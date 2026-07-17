@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ProviderIcon } from "@/components/provider-icons";
-import type { ProviderId } from "@/lib/types";
+import type { ComposioPlanId, ProviderId } from "@/lib/types";
 import { PROVIDER_META } from "@/lib/types";
 
 export type WizardMode = "create" | "edit";
@@ -15,6 +15,7 @@ export type WizardDraft = {
   oauthCallbackUrl?: string;
   apiKey?: string;
   keyId?: string;
+  composioPlan?: ComposioPlanId | "";
 };
 
 type AccountWizardProps = {
@@ -55,6 +56,9 @@ function WizardPanel({
   const [workspaceId, setWorkspaceId] = useState(initial?.workspaceId ?? "");
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
   const [keyId, setKeyId] = useState(initial?.keyId ?? "");
+  const [composioPlan, setComposioPlan] = useState<ComposioPlanId | "">(
+    initial?.composioPlan ?? "",
+  );
   const [oauthCallbackUrl, setOauthCallbackUrl] = useState(
     initial?.oauthCallbackUrl ?? "",
   );
@@ -121,6 +125,11 @@ function WizardPanel({
       return;
     }
 
+    if (provider === "composio" && !apiKey.trim()) {
+      setError("Paste your Composio org API key (oak_…).");
+      return;
+    }
+
     if (
       provider === "codex" &&
       mode === "create" &&
@@ -158,6 +167,16 @@ function WizardPanel({
           name: trimmedName,
           apiKey: apiKey.trim(),
           keyId: keyId.trim() || undefined,
+        });
+        return;
+      }
+
+      if (provider === "composio") {
+        await onSubmit({
+          provider,
+          name: trimmedName,
+          apiKey: apiKey.trim(),
+          composioPlan: composioPlan || "",
         });
         return;
       }
@@ -245,7 +264,9 @@ function WizardPanel({
                       ? "Tavily research"
                       : provider === "exa"
                         ? "Exa team"
-                        : "home workspace"
+                        : provider === "composio"
+                          ? "Composio project"
+                          : "home workspace"
                 }
                 autoComplete="off"
               />
@@ -343,6 +364,58 @@ function WizardPanel({
                   <span className="text-xs leading-relaxed text-muted">
                     Scope meters to one search key. Leave blank to aggregate all
                     keys on the team.
+                  </span>
+                </label>
+              </>
+            ) : null}
+
+            {provider === "composio" ? (
+              <>
+                <label className="flex flex-col gap-1 text-sm text-ink-2">
+                  <span>Org API key</span>
+                  <input
+                    className={fieldClass}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="oak_…"
+                    autoComplete="off"
+                    type="password"
+                  />
+                  <span className="text-xs leading-relaxed text-muted">
+                    From dashboard → Organization Settings → Organization Access
+                    Tokens (`oak_…`). Usagi polls monthly tool calls / pro tool
+                    calls via POST /api/v3.1/org/usage/summary. Consumer keys
+                    (`ck_…`) only work for Connect MCP and will not work here.
+                  </span>
+                </label>
+                <label className="flex flex-col gap-1 text-sm text-ink-2">
+                  <span>
+                    Plan <span className="text-muted">(optional)</span>
+                  </span>
+                  <select
+                    className={fieldClass}
+                    value={composioPlan}
+                    onChange={(e) =>
+                      setComposioPlan(
+                        (e.target.value || "") as ComposioPlanId | "",
+                      )
+                    }
+                  >
+                    <option value="">Auto (Totally Free quotas)</option>
+                    <option value="free">Totally Free · 20k / 1k</option>
+                    <option value="cheap">
+                      Ridiculously Cheap · 200k / 5k
+                    </option>
+                    <option value="serious">
+                      Serious Business · 2M / 50k
+                    </option>
+                    <option value="enterprise">Enterprise · no hard cap</option>
+                  </select>
+                  <span className="text-xs leading-relaxed text-muted">
+                    Composio&apos;s subscription API is cookie-auth only, so
+                    Usagi cannot read your plan from an org key. Pick your plan
+                    for accurate quota bars, or leave Auto (Free quotas; escalates
+                    if month-to-date usage exceeds a lower tier).
                   </span>
                 </label>
               </>

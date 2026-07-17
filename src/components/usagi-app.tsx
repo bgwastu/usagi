@@ -147,6 +147,9 @@ export function UsagiApp() {
       } else if (draft.provider === "exa") {
         body.apiKey = draft.apiKey;
         body.keyId = draft.keyId ?? "";
+      } else if (draft.provider === "composio") {
+        body.apiKey = draft.apiKey;
+        body.plan = draft.composioPlan ?? "";
       } else if (draft.oauthCallbackUrl) {
         body.oauthCallbackUrl = draft.oauthCallbackUrl;
       }
@@ -158,10 +161,15 @@ export function UsagiApp() {
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Update failed");
     } else {
+      const body: Record<string, unknown> = { ...draft };
+      if (draft.provider === "composio") {
+        body.plan = draft.composioPlan || undefined;
+        delete body.composioPlan;
+      }
       const res = await fetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(body),
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? "Create failed");
@@ -184,12 +192,17 @@ export function UsagiApp() {
             : undefined,
         apiKey:
           editingCard.account.provider === "tavily" ||
-          editingCard.account.provider === "exa"
+          editingCard.account.provider === "exa" ||
+          editingCard.account.provider === "composio"
             ? editingCard.account.credentials.apiKey
             : undefined,
         keyId:
           editingCard.account.provider === "exa"
             ? editingCard.account.credentials.keyId
+            : undefined,
+        composioPlan:
+          editingCard.account.provider === "composio"
+            ? (editingCard.account.credentials.plan ?? "")
             : undefined,
       }
     : undefined;

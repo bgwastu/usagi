@@ -84,6 +84,28 @@ export async function PATCH(request: Request, { params }: Params) {
           ...(keyId ? { keyId } : {}),
         },
       };
+    } else if (next.provider === "composio") {
+      const apiKey =
+        typeof body.apiKey === "string"
+          ? body.apiKey.trim()
+          : next.credentials.apiKey;
+      const plan =
+        body.plan === "free" ||
+        body.plan === "cheap" ||
+        body.plan === "serious" ||
+        body.plan === "enterprise"
+          ? body.plan
+          : body.plan === ""
+            ? undefined
+            : next.credentials.plan;
+      next = {
+        ...next,
+        provider: "composio",
+        credentials: {
+          apiKey,
+          ...(plan ? { plan } : {}),
+        },
+      };
     } else if (next.provider === "codex") {
       if (typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) {
         const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);

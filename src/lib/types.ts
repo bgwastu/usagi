@@ -1,4 +1,9 @@
-export type ProviderId = "opencode-go" | "codex" | "tavily" | "exa";
+export type ProviderId =
+  | "opencode-go"
+  | "codex"
+  | "tavily"
+  | "exa"
+  | "composio";
 
 export type MeterKind = "window" | "credits" | "balance";
 
@@ -44,6 +49,18 @@ export type ExaCredentials = {
   keyId?: string;
 };
 
+export type ComposioPlanId = "free" | "cheap" | "serious" | "enterprise";
+
+export type ComposioCredentials = {
+  /** Org API key (`oak_…`, preferred) or project API key (`ak_…`). */
+  apiKey: string;
+  /**
+   * Optional plan override for monthly quota bars.
+   * When unset, Usagi assumes Totally Free (or escalates if MTD usage exceeds that tier).
+   */
+  plan?: ComposioPlanId;
+};
+
 export type AccountBase = {
   id: string;
   name: string;
@@ -70,6 +87,10 @@ export type Account =
   | (AccountBase & {
       provider: "exa";
       credentials: ExaCredentials;
+    })
+  | (AccountBase & {
+      provider: "composio";
+      credentials: ComposioCredentials;
     });
 
 export type AccountUsage = {
@@ -126,6 +147,11 @@ export const PROVIDER_META: Record<
     credentialHint: "Service key · 3d / 7d / 30d spend",
     minRefreshMs: 60_000,
   },
+  composio: {
+    displayName: "Composio",
+    credentialHint: "Org API key · monthly tool-call quota",
+    minRefreshMs: 60_000,
+  },
 };
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
@@ -133,4 +159,5 @@ export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   "opencode-go": "2x1",
   tavily: "1x1",
   exa: "1x2",
+  composio: "1x2",
 };
