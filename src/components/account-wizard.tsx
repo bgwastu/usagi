@@ -14,6 +14,7 @@ export type WizardDraft = {
   workspaceId?: string;
   oauthCallbackUrl?: string;
   apiKey?: string;
+  keyId?: string;
 };
 
 type AccountWizardProps = {
@@ -53,6 +54,7 @@ function WizardPanel({
   const [cookie, setCookie] = useState(initial?.cookie ?? "");
   const [workspaceId, setWorkspaceId] = useState(initial?.workspaceId ?? "");
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
+  const [keyId, setKeyId] = useState(initial?.keyId ?? "");
   const [oauthCallbackUrl, setOauthCallbackUrl] = useState(
     initial?.oauthCallbackUrl ?? "",
   );
@@ -114,6 +116,11 @@ function WizardPanel({
       return;
     }
 
+    if (provider === "exa" && !apiKey.trim()) {
+      setError("Paste your Exa Team Management service key.");
+      return;
+    }
+
     if (
       provider === "codex" &&
       mode === "create" &&
@@ -141,6 +148,16 @@ function WizardPanel({
           provider,
           name: trimmedName,
           apiKey: apiKey.trim(),
+        });
+        return;
+      }
+
+      if (provider === "exa") {
+        await onSubmit({
+          provider,
+          name: trimmedName,
+          apiKey: apiKey.trim(),
+          keyId: keyId.trim() || undefined,
         });
         return;
       }
@@ -226,7 +243,9 @@ function WizardPanel({
                     ? "personal@email.com"
                     : provider === "tavily"
                       ? "Tavily research"
-                      : "home workspace"
+                      : provider === "exa"
+                        ? "Exa team"
+                        : "home workspace"
                 }
                 autoComplete="off"
               />
@@ -290,6 +309,43 @@ function WizardPanel({
                   10 minutes if rate-limited).
                 </span>
               </label>
+            ) : null}
+
+            {provider === "exa" ? (
+              <>
+                <label className="flex flex-col gap-1 text-sm text-ink-2">
+                  <span>Service key</span>
+                  <input
+                    className={fieldClass}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    autoComplete="off"
+                    type="password"
+                  />
+                  <span className="text-xs leading-relaxed text-muted">
+                    From dashboard.exa.ai → Team Management / service API key.
+                    Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. A regular
+                    search key only confirms auth (no spend meters).
+                  </span>
+                </label>
+                <label className="flex flex-col gap-1 text-sm text-ink-2">
+                  <span>
+                    Key ID <span className="text-muted">(optional)</span>
+                  </span>
+                  <input
+                    className={fieldClass}
+                    value={keyId}
+                    onChange={(e) => setKeyId(e.target.value)}
+                    placeholder="Search key UUID — leave blank for all keys"
+                    autoComplete="off"
+                  />
+                  <span className="text-xs leading-relaxed text-muted">
+                    Scope meters to one search key. Leave blank to aggregate all
+                    keys on the team.
+                  </span>
+                </label>
+              </>
             ) : null}
 
             {provider === "codex" ? (

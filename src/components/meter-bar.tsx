@@ -27,9 +27,13 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           </span>
           <span className="font-outlier text-sm tabular-nums text-ink">
             {hasLimit && meter.remaining != null
-              ? `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()}`
+              ? meter.unit === "USD"
+                ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()}`
               : meter.used != null
-                ? `${meter.used.toLocaleString()} used`
+                ? meter.unit === "USD"
+                  ? `$${meter.used.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+                  : `${meter.used.toLocaleString()} used`
                 : meter.remaining != null
                   ? `${meter.remaining.toLocaleString()} ${meter.unit ?? ""}`.trim()
                   : pct != null
@@ -54,7 +58,12 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
         ) : null}
         {!compact && hasLimit ? (
           <p className="m-0 text-xs text-ink-2">
-            {meter.remaining?.toLocaleString()} remaining this cycle
+            {meter.unit === "USD" && meter.remaining != null
+              ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} remaining this cycle`
+              : `${meter.remaining?.toLocaleString()} remaining this cycle`}
+            {meter.resetsAt != null
+              ? ` · resets in ${formatResetCountdown(meter.resetsAt)}`
+              : null}
           </p>
         ) : null}
       </div>

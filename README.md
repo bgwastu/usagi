@@ -26,6 +26,7 @@ Optional: set `ENCRYPTION_KEY` to encrypt that file at rest. If decryption fails
 - **Codex** — OAuth (PKCE), auto-refresh · 5-hour + weekly windows
 - **OpenCode Go** — session cookie; workspace ID optional · 5-hour + weekly (+ monthly if present)
 - **Tavily** — API key · plan / key credits
+- **Exa** — Team Management service key · 3d / 7d / 30d spend (optional key ID)
 
 ## Notes
 

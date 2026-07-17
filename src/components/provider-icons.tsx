@@ -47,6 +47,27 @@ export function OpenCodeGoIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Official Exa logomark from exa.ai/brand — monochrome for theme blending. */
+export function ExaIcon({ size = 16, className }: IconProps) {
+  const height = Math.round((size * 182) / 151);
+  return (
+    <svg
+      width={size}
+      height={height}
+      viewBox="0 0 151 182"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M150.5 14.1064C150.5 14.3356 150.421 14.5579 150.277 14.736L88.4766 91L150.277 167.264C150.421 167.442 150.5 167.664 150.5 167.894V181C150.5 181.552 150.052 182 149.5 182H1C0.44772 182 0 181.552 0 181V0.999995C0 0.44771 0.447715 0 1 0H149.5C150.052 0 150.5 0.447715 150.5 1V14.1064ZM30.4059 162.719H121.728L76.0664 106.326L30.4059 162.719ZM19.2949 100.261V145.787L56.1572 100.261H19.2949ZM19.2949 80.9801H55.5434L19.2949 36.2121V80.9801ZM76.0664 75.6731L121.728 19.281H30.4059L76.0664 75.6731Z"
+      />
+    </svg>
+  );
+}
+
 /** Official Tavily mark from tavily.com/logos — monochrome for theme blending. */
 export function TavilyIcon({ size = 16, className }: IconProps) {
   return (
@@ -83,6 +104,9 @@ export function ProviderIcon({
   }
   if (provider === "tavily") {
     return <TavilyIcon size={size} className={className} />;
+  }
+  if (provider === "exa") {
+    return <ExaIcon size={size} className={className} />;
   }
   return <OpenCodeGoIcon size={size} className={className} />;
 }

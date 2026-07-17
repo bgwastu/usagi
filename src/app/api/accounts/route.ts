@@ -44,6 +44,13 @@ type CreateBody =
       span?: Account["span"];
     }
   | {
+      provider: "exa";
+      name: string;
+      apiKey: string;
+      keyId?: string;
+      span?: Account["span"];
+    }
+  | {
       provider: "codex";
       name?: string;
       oauthCallbackUrl: string;
@@ -85,6 +92,21 @@ export async function POST(request: Request) {
         name: body.name.trim(),
         span: body.span ?? DEFAULT_SPAN.tavily,
         credentials: { apiKey: body.apiKey.trim() },
+        authStatus: "ok",
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else if (body.provider === "exa") {
+      const keyId = body.keyId?.trim();
+      account = {
+        id: randomUUID(),
+        provider: "exa",
+        name: body.name.trim(),
+        span: body.span ?? DEFAULT_SPAN.exa,
+        credentials: {
+          apiKey: body.apiKey.trim(),
+          ...(keyId ? { keyId } : {}),
+        },
         authStatus: "ok",
         createdAt: now,
         updatedAt: now,

@@ -1,4 +1,4 @@
-export type ProviderId = "opencode-go" | "codex" | "tavily";
+export type ProviderId = "opencode-go" | "codex" | "tavily" | "exa";
 
 export type MeterKind = "window" | "credits" | "balance";
 
@@ -37,6 +37,13 @@ export type TavilyCredentials = {
   apiKey: string;
 };
 
+export type ExaCredentials = {
+  /** Team Management service key (preferred) or a search API key. */
+  apiKey: string;
+  /** Optional search-key UUID when `apiKey` is a service key. */
+  keyId?: string;
+};
+
 export type AccountBase = {
   id: string;
   name: string;
@@ -59,6 +66,10 @@ export type Account =
   | (AccountBase & {
       provider: "tavily";
       credentials: TavilyCredentials;
+    })
+  | (AccountBase & {
+      provider: "exa";
+      credentials: ExaCredentials;
     });
 
 export type AccountUsage = {
@@ -110,10 +121,16 @@ export const PROVIDER_META: Record<
     minRefreshMs: 120_000,
     rateLimitBackoffMs: 10 * 60_000,
   },
+  exa: {
+    displayName: "Exa",
+    credentialHint: "Service key · 3d / 7d / 30d spend",
+    minRefreshMs: 60_000,
+  },
 };
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   codex: "2x1",
   "opencode-go": "2x1",
   tavily: "1x1",
+  exa: "1x2",
 };

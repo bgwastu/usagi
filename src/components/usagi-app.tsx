@@ -144,6 +144,9 @@ export function UsagiApp() {
         body.workspaceId = draft.workspaceId;
       } else if (draft.provider === "tavily") {
         body.apiKey = draft.apiKey;
+      } else if (draft.provider === "exa") {
+        body.apiKey = draft.apiKey;
+        body.keyId = draft.keyId ?? "";
       } else if (draft.oauthCallbackUrl) {
         body.oauthCallbackUrl = draft.oauthCallbackUrl;
       }
@@ -180,8 +183,13 @@ export function UsagiApp() {
             ? editingCard.account.credentials.workspaceId
             : undefined,
         apiKey:
-          editingCard.account.provider === "tavily"
+          editingCard.account.provider === "tavily" ||
+          editingCard.account.provider === "exa"
             ? editingCard.account.credentials.apiKey
+            : undefined,
+        keyId:
+          editingCard.account.provider === "exa"
+            ? editingCard.account.credentials.keyId
             : undefined,
       }
     : undefined;

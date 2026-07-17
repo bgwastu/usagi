@@ -2,6 +2,7 @@ import type { Account, AccountUsage, ProviderId } from "@/lib/types";
 import { fetchCodexUsage, refreshCodexCredentials } from "@/providers/codex";
 import { fetchOpenCodeGoUsage } from "@/providers/opencode-go";
 import { fetchTavilyUsage } from "@/providers/tavily";
+import { fetchExaUsage } from "@/providers/exa";
 import { saveAccount } from "@/lib/db";
 import { PROVIDER_META } from "@/lib/types";
 
@@ -34,6 +35,8 @@ function credentialCooldownKey(account: Account): string {
   switch (account.provider) {
     case "tavily":
       return `tavily:${account.credentials.apiKey}`;
+    case "exa":
+      return `exa:${account.credentials.apiKey}:${account.credentials.keyId ?? ""}`;
     case "opencode-go":
       return `opencode-go:${account.credentials.cookie}`;
     case "codex":
@@ -150,6 +153,8 @@ async function fetchProviderUsage(account: Account): Promise<AccountUsage> {
       return fetchOpenCodeGoUsage(account);
     case "tavily":
       return fetchTavilyUsage(account);
+    case "exa":
+      return fetchExaUsage(account);
     default: {
       const _exhaustive: never = account;
       return _exhaustive;
