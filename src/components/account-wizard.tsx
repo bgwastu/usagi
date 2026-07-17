@@ -346,8 +346,11 @@ function WizardPanel({
                   />
                   <span className="text-xs leading-relaxed text-muted">
                     From dashboard.exa.ai → Team Management / service API key.
-                    Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. A regular
-                    search key only confirms auth (no spend meters).
+                    Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. Set a
+                    spending budget on the search key in Exa to show a Key budget
+                    remaining bar ($Y / $Z). Team wallet balance is not exposed by
+                    the API. A regular search key only confirms auth (no spend
+                    meters).
                   </span>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">

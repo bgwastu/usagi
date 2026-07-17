@@ -2,6 +2,8 @@ import type { Account, AccountUsage, UsageMeter } from "@/lib/types";
 
 const TEAM_MGMT = "https://admin-api.exa.ai/team-management";
 const TEAMS_ME = "https://api.exa.ai/websets/v0/teams/me";
+/** Exa usage lookback max for spend-against-budget (documented API cap). */
+const BUDGET_LOOKBACK_MS = 180 * 86_400_000;
 
 type ExaApiKey = {
   id: string;
@@ -163,6 +165,27 @@ function spendMeters(totals: SpendWindows): UsageMeter[] {
   ];
 }
 
+function keyBudgetMeter(input: {
+  budgetUsd: number;
+  usedUsd: number;
+  isOverBudget?: boolean;
+}): UsageMeter {
+  const meter = usdMeter({
+    id: "key-budget",
+    label: "Key budget",
+    used: input.usedUsd,
+    limit: input.budgetUsd,
+  });
+  if (input.isOverBudget) {
+    return {
+      ...meter,
+      remaining: 0,
+      usedPercent: 100,
+    };
+  }
+  return meter;
+}
+
 function parseTeamLabel(message: string | undefined): string | undefined {
   if (!message) return undefined;
   const match = /\(([^)]+)\)/.exec(message);
@@ -174,6 +197,8 @@ function parseTeamLabel(message: string | undefined): string | undefined {
  *
  * Prefer a Team Management **service key** (`apiKey`): lists keys and loads
  * 3d / 7d / 30d spend. Optional `keyId` scopes to one search key.
+ * When that key has `budgetCents`, also shows a Key budget remaining bar
+ * (180d spend vs budget — not team wallet balance).
  */
 export async function fetchExaUsage(
   account: Extract<Account, { provider: "exa" }>,
@@ -252,8 +277,9 @@ export async function fetchExaUsage(
       }
     }
 
-    // When scoping to one key with a per-key budget, overlay budget on 30d.
     const meters = spendMeters(totals);
+
+    // Per-key budgets only make sense for a single scoped key.
     if (targets.length === 1) {
       const key = targets[0]!;
       const budgetUsd =
@@ -261,15 +287,17 @@ export async function fetchExaUsage(
           ? key.budgetCents / 100
           : null;
       if (budgetUsd != null) {
-        const idx = meters.findIndex((m) => m.id === "spend-30d");
-        if (idx >= 0) {
-          meters[idx] = usdMeter({
-            id: "spend-30d",
-            label: "30d spend",
-            used: totals.spend30d,
-            limit: budgetUsd,
-          });
-        }
+        const againstBudget = await fetchKeyUsage(apiKey, key.id, {
+          start: toIso(nowMs - BUDGET_LOOKBACK_MS),
+          end: toIso(nowMs),
+        });
+        meters.unshift(
+          keyBudgetMeter({
+            budgetUsd,
+            usedUsd: againstBudget?.total_cost_usd ?? 0,
+            isOverBudget: key.isOverBudget,
+          }),
+        );
       }
     }
 

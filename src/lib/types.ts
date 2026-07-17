@@ -144,7 +144,7 @@ export const PROVIDER_META: Record<
   },
   exa: {
     displayName: "Exa",
-    credentialHint: "Service key · 3d / 7d / 30d spend",
+    credentialHint: "Service key · spend + key budget",
     minRefreshMs: 60_000,
   },
   composio: {

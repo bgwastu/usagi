@@ -7,7 +7,7 @@ import {
   type WizardDraft,
 } from "@/components/account-wizard";
 import { AccountsLoading } from "@/components/accounts-loading";
-import type { AccountCardModel } from "@/lib/types";
+import type { AccountCardModel, ComposioPlanId } from "@/lib/types";
 
 const REFRESH_MS = 5_000;
 
@@ -202,7 +202,9 @@ export function UsagiApp() {
             : undefined,
         composioPlan:
           editingCard.account.provider === "composio"
-            ? (editingCard.account.credentials.plan ?? "")
+            ? ((editingCard.account.credentials.plan ?? "") as
+                | ComposioPlanId
+                | "")
             : undefined,
       }
     : undefined;
