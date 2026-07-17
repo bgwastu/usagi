@@ -2,7 +2,7 @@
 
 Self-hosted usage board for provider accounts.
 
-![Usagi board (dark)](docs/screenshots/board-dark.png)
+![Usagi board](docs/screenshots/board.png)
 
 ## Run
 
