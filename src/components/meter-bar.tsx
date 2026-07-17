@@ -10,15 +10,16 @@ type MeterBarProps = {
 export function MeterBar({ meter, compact = false }: MeterBarProps) {
   if (meter.kind === "credits" || meter.kind === "balance") {
     const hasLimit = meter.limit != null && meter.limit > 0;
-    const pct =
+    const usedPct =
       meter.usedPercent != null
-        ? Math.min(100, Math.max(0, meter.usedPercent))
+        ? clampPercent(meter.usedPercent)
         : hasLimit && meter.remaining != null
-          ? Math.min(
-              100,
-              Math.max(0, ((meter.limit! - meter.remaining) / meter.limit!) * 100),
+          ? clampPercent(
+              ((meter.limit! - meter.remaining) / meter.limit!) * 100,
             )
           : null;
+    const remainingPct =
+      usedPct != null ? remainingPercent(usedPct) : null;
 
     return (
       <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
@@ -29,42 +30,37 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           <span className="font-outlier text-sm tabular-nums text-ink">
             {hasLimit && meter.remaining != null
               ? meter.unit === "USD"
-                ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()}`
+                ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })} left`
+                : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()} left`
               : meter.used != null
                 ? meter.unit === "USD"
                   ? `$${meter.used.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
                   : `${meter.used.toLocaleString()} used`
                 : meter.remaining != null
-                  ? `${meter.remaining.toLocaleString()} ${meter.unit ?? ""}`.trim()
-                  : pct != null
-                    ? `${Math.round(pct)}%`
+                  ? `${[meter.remaining.toLocaleString(), meter.unit, "left"].filter(Boolean).join(" ")}`
+                  : remainingPct != null
+                    ? `${Math.round(remainingPct)}% left`
                     : "—"}
           </span>
         </div>
-        {pct != null ? (
+        {remainingPct != null && usedPct != null ? (
           <div
             className="h-1.5 overflow-hidden rounded-full bg-meter-track"
             role="meter"
-            aria-label={`${meter.label} usage`}
+            aria-label={`${meter.label} left`}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(pct)}
+            aria-valuenow={Math.round(remainingPct)}
           >
             <div
-              className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(pct)}`}
-              style={{ width: `${pct}%` }}
+              className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(usedPct)}`}
+              style={{ width: `${remainingPct}%` }}
             />
           </div>
         ) : null}
-        {!compact && hasLimit ? (
+        {!compact && hasLimit && meter.resetsAt != null ? (
           <p className="m-0 text-xs text-ink-2">
-            {meter.unit === "USD" && meter.remaining != null
-              ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} remaining this cycle`
-              : `${meter.remaining?.toLocaleString()} remaining this cycle`}
-            {meter.resetsAt != null
-              ? ` · resets in ${formatResetCountdown(meter.resetsAt)}`
-              : null}
+            resets in {formatResetCountdown(meter.resetsAt)}
           </p>
         ) : null}
       </div>
@@ -75,7 +71,7 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
     return null;
   }
 
-  // API / providers store used%; ChatGPT & Codex UIs show remaining.
+  // API / providers store used%; UI shows remaining.
   const used = clampPercent(meter.usedPercent);
   const remaining = remainingPercent(used);
 
@@ -86,25 +82,25 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
           {meter.label}
         </span>
         <span className="font-outlier text-sm tabular-nums text-ink">
-          {Math.round(remaining)}%
+          {Math.round(remaining)}% left
         </span>
       </div>
       <div
         className="h-1.5 overflow-hidden rounded-full bg-meter-track"
         role="meter"
-        aria-label={`${meter.label} remaining`}
+        aria-label={`${meter.label} left`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(remaining)}
       >
         <div
           className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(used)}`}
-          style={{ width: `${used}%` }}
+          style={{ width: `${remaining}%` }}
         />
       </div>
       {!compact ? (
         <p className="m-0 text-xs text-ink-2">
-          remaining · resets in {formatResetCountdown(meter.resetsAt)}
+          resets in {formatResetCountdown(meter.resetsAt)}
         </p>
       ) : null}
     </div>
