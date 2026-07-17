@@ -12,6 +12,7 @@ import {
   exchangeCodexCode,
   extractCodexIdentity,
 } from "@/providers/codex";
+import { normalizeCursorCookie } from "@/providers/cursor";
 import { parseOAuthCallbackUrl, takePkceVerifier } from "@/lib/oauth-pkce";
 
 export const runtime = "nodejs";
@@ -40,6 +41,12 @@ type CreateBody =
       name: string;
       cookie: string;
       workspaceId?: string;
+      span?: Account["span"];
+    }
+  | {
+      provider: "cursor";
+      name: string;
+      cookie: string;
       span?: Account["span"];
     }
   | {
@@ -93,6 +100,24 @@ export async function POST(request: Request) {
           cookie: body.cookie.trim(),
           ...(workspaceId ? { workspaceId } : {}),
         },
+        authStatus: "ok",
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else if (body.provider === "cursor") {
+      const cookie = normalizeCursorCookie(body.cookie);
+      if (!cookie) {
+        return NextResponse.json(
+          { error: "Paste the WorkosCursorSessionToken cookie" },
+          { status: 400 },
+        );
+      }
+      account = {
+        id: randomUUID(),
+        provider: "cursor",
+        name: body.name.trim(),
+        span: body.span ?? DEFAULT_SPAN.cursor,
+        credentials: { cookie },
         authStatus: "ok",
         createdAt: now,
         updatedAt: now,

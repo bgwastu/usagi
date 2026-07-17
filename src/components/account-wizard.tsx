@@ -115,6 +115,11 @@ function WizardPanel({
       return;
     }
 
+    if (provider === "cursor" && !cookie.trim()) {
+      setError("Paste the WorkosCursorSessionToken cookie.");
+      return;
+    }
+
     if (provider === "tavily" && !apiKey.trim()) {
       setError("Paste your Tavily API key.");
       return;
@@ -148,6 +153,15 @@ function WizardPanel({
           name: trimmedName,
           cookie: cookie.trim(),
           workspaceId: workspaceId.trim(),
+        });
+        return;
+      }
+
+      if (provider === "cursor") {
+        await onSubmit({
+          provider,
+          name: trimmedName,
+          cookie: cookie.trim(),
         });
         return;
       }
@@ -260,13 +274,15 @@ function WizardPanel({
                 placeholder={
                   provider === "codex"
                     ? "personal@email.com"
-                    : provider === "tavily"
-                      ? "Tavily research"
-                      : provider === "exa"
-                        ? "Exa team"
-                        : provider === "composio"
-                          ? "Composio project"
-                          : "home workspace"
+                    : provider === "cursor"
+                      ? "Cursor personal"
+                      : provider === "tavily"
+                        ? "Tavily research"
+                        : provider === "exa"
+                          ? "Exa team"
+                          : provider === "composio"
+                            ? "Composio project"
+                            : "home workspace"
                 }
                 autoComplete="off"
               />
@@ -310,6 +326,28 @@ function WizardPanel({
                   </span>
                 </label>
               </>
+            ) : null}
+
+            {provider === "cursor" ? (
+              <label className="flex flex-col gap-1 text-sm text-ink-2">
+                <span>Session cookie</span>
+                <textarea
+                  className={fieldClass}
+                  value={cookie}
+                  onChange={(e) => setCookie(e.target.value)}
+                  placeholder="WorkosCursorSessionToken=… or user_…%3A%3AeyJ…"
+                  rows={4}
+                />
+                <span className="text-xs leading-relaxed text-muted">
+                  From cursor.com while logged in: DevTools → Application →
+                  Cookies → `https://cursor.com` → copy{" "}
+                  <code className="text-ink">WorkosCursorSessionToken</code>.
+                  Usagi polls the unofficial dashboard{" "}
+                  <code className="text-ink">/api/usage-summary</code> endpoint
+                  (plan %, Auto + Composer, API, on-demand). Sessions expire —
+                  paste a fresh cookie when auth fails.
+                </span>
+              </label>
             ) : null}
 
             {provider === "tavily" ? (

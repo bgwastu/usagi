@@ -7,6 +7,7 @@ import {
 import { fetchUsageForAccount, invalidateUsageCache } from "@/lib/usage";
 import type { Account } from "@/lib/types";
 import { exchangeCodexCode } from "@/providers/codex";
+import { normalizeCursorCookie } from "@/providers/cursor";
 import { parseOAuthCallbackUrl, takePkceVerifier } from "@/lib/oauth-pkce";
 
 export const runtime = "nodejs";
@@ -60,6 +61,22 @@ export async function PATCH(request: Request, { params }: Params) {
           cookie,
           ...(workspaceId ? { workspaceId } : {}),
         },
+      };
+    } else if (next.provider === "cursor") {
+      const cookie =
+        typeof body.cookie === "string"
+          ? normalizeCursorCookie(body.cookie)
+          : next.credentials.cookie;
+      if (!cookie) {
+        return NextResponse.json(
+          { error: "Paste the WorkosCursorSessionToken cookie" },
+          { status: 400 },
+        );
+      }
+      next = {
+        ...next,
+        provider: "cursor",
+        credentials: { cookie },
       };
     } else if (next.provider === "tavily") {
       const apiKey =

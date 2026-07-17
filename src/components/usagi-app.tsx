@@ -142,6 +142,8 @@ export function UsagiApp() {
       if (draft.provider === "opencode-go") {
         body.cookie = draft.cookie;
         body.workspaceId = draft.workspaceId;
+      } else if (draft.provider === "cursor") {
+        body.cookie = draft.cookie;
       } else if (draft.provider === "tavily") {
         body.apiKey = draft.apiKey;
       } else if (draft.provider === "exa") {
@@ -183,7 +185,8 @@ export function UsagiApp() {
         provider: editingCard.account.provider,
         name: editingCard.account.name,
         cookie:
-          editingCard.account.provider === "opencode-go"
+          editingCard.account.provider === "opencode-go" ||
+          editingCard.account.provider === "cursor"
             ? editingCard.account.credentials.cookie
             : undefined,
         workspaceId:

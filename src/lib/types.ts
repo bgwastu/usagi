@@ -1,6 +1,7 @@
 export type ProviderId =
   | "opencode-go"
   | "codex"
+  | "cursor"
   | "tavily"
   | "exa"
   | "composio";
@@ -61,6 +62,11 @@ export type ComposioCredentials = {
   plan?: ComposioPlanId;
 };
 
+export type CursorCredentials = {
+  /** `WorkosCursorSessionToken` value (or full Cookie header containing it). */
+  cookie: string;
+};
+
 export type AccountBase = {
   id: string;
   name: string;
@@ -91,6 +97,10 @@ export type Account =
   | (AccountBase & {
       provider: "composio";
       credentials: ComposioCredentials;
+    })
+  | (AccountBase & {
+      provider: "cursor";
+      credentials: CursorCredentials;
     });
 
 export type AccountUsage = {
@@ -152,11 +162,18 @@ export const PROVIDER_META: Record<
     credentialHint: "Org API key · monthly tool-call quota",
     minRefreshMs: 60_000,
   },
+  cursor: {
+    displayName: "Cursor",
+    credentialHint: "Session cookie · plan + on-demand",
+    minRefreshMs: 60_000,
+    rateLimitBackoffMs: 5 * 60_000,
+  },
 };
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   codex: "2x1",
   "opencode-go": "2x1",
+  cursor: "2x1",
   tavily: "1x1",
   exa: "1x2",
   composio: "1x2",

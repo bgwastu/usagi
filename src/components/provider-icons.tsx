@@ -105,6 +105,30 @@ export function ComposioIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/**
+ * Official Cursor cube mark from cursor.com/brand (2D logomark used in
+ * Cursor's own UI packages / marketplace avatars) — monochrome for theme blending.
+ */
+export function CursorIcon({ size = 16, className }: IconProps) {
+  const height = Math.round((size * 56) / 49);
+  return (
+    <svg
+      width={size}
+      height={height}
+      viewBox="0 0 49 56"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M48.0226 13.2547L25.6601 0.311786C24.942 -0.103929 24.0559 -0.103929 23.3378 0.311786L0.976347 13.2547C0.372691 13.6041 0 14.2503 0 14.9502V41.0498C0 41.7496 0.372691 42.3958 0.976347 42.7453L23.3389 55.6882C24.057 56.1039 24.943 56.1039 25.6611 55.6882L48.0237 42.7453C48.6273 42.3958 49 41.7496 49 41.0498V14.9502C49 14.2503 48.6273 13.6041 48.0237 13.2547H48.0226ZM46.6179 15.9964L25.0302 53.4802C24.8842 53.7328 24.4989 53.6296 24.4989 53.337V28.793C24.4989 28.3026 24.2375 27.849 23.8134 27.6027L2.61094 15.3312C2.35898 15.1849 2.46186 14.7987 2.75372 14.7987H45.9292C46.5423 14.7987 46.9255 15.4649 46.619 15.9974L46.6179 15.9964Z"
+      />
+    </svg>
+  );
+}
+
 /** Official Tavily mark from tavily.com/logos — monochrome for theme blending. */
 export function TavilyIcon({ size = 16, className }: IconProps) {
   return (
@@ -138,6 +162,9 @@ export function ProviderIcon({
 }) {
   if (provider === "codex") {
     return <CodexIcon size={size} className={className} />;
+  }
+  if (provider === "cursor") {
+    return <CursorIcon size={size} className={className} />;
   }
   if (provider === "tavily") {
     return <TavilyIcon size={size} className={className} />;
