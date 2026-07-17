@@ -12,6 +12,7 @@ import { AccountTile } from "@/components/account-tile";
 import {
   BOARD_BREAKPOINTS,
   BOARD_COLS,
+  BOARD_DRAG_HANDLE_CLASS,
   BOARD_MARGIN,
   BOARD_ROW_HEIGHT,
   TILE_PADDING_Y,
@@ -139,7 +140,13 @@ export function AccountsBoard({
           margin={BOARD_MARGIN}
           containerPadding={[0, 0]}
           compactor={verticalCompactor}
-          dragConfig={{ enabled: true, bounded: false, threshold: 8 }}
+          dragConfig={{
+            enabled: true,
+            bounded: false,
+            threshold: 8,
+            // Only the grip starts a drag so touch scroll still works on the tile body.
+            handle: `.${BOARD_DRAG_HANDLE_CLASS}`,
+          }}
           resizeConfig={{ enabled: false }}
           onLayoutChange={(_layout, nextLayouts) => {
             if (!draggingRef.current) return;

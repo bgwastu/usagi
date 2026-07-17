@@ -198,8 +198,14 @@ body {
 .usagi-board .react-grid-item {
   overflow: hidden;
   border-radius: 1rem;
+  /* Let vertical page scroll win unless the user grabs the handle. */
+  touch-action: pan-y;
   transition: transform 180ms var(--ease-out), width 180ms var(--ease-out),
     height 180ms var(--ease-out);
+}
+
+.usagi-board .usagi-drag-handle {
+  touch-action: none;
 }
 
 .usagi-board .react-grid-item.react-grid-placeholder {

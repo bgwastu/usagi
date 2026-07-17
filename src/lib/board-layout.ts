@@ -11,6 +11,9 @@ export const BOARD_BREAKPOINTS = { lg: 768, sm: 640, xs: 0 } as const;
 export const BOARD_COLS = { lg: 4, sm: 2, xs: 1 } as const;
 export type BoardBreakpoint = keyof typeof BOARD_BREAKPOINTS;
 
+/** CSS class for the tile grip; only this element starts a drag (keeps page scroll on touch). */
+export const BOARD_DRAG_HANDLE_CLASS = "usagi-drag-handle";
+
 /**
  * 1px rows so measured card heights map nearly 1:1.
  * Item pixel height = h * rowHeight + (h - 1) * marginY
