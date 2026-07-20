@@ -24,6 +24,7 @@ type AccountWizardProps = {
   initial?: Partial<WizardDraft>;
   onClose: () => void;
   onSubmit: (draft: WizardDraft) => Promise<void> | void;
+  onDelete?: () => Promise<void> | void;
 };
 
 type Step = "provider" | "credentials";
@@ -42,6 +43,7 @@ function WizardPanel({
   initial,
   onClose,
   onSubmit,
+  onDelete,
 }: Omit<AccountWizardProps, "open">) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ function WizardPanel({
   const [oauthPreparing, setOauthPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -569,10 +572,40 @@ function WizardPanel({
                 >
                   Back
                 </button>
+              ) : onDelete ? (
+                <button
+                  type="button"
+                  className={`${secondaryBtnClass} border-danger/40 text-danger hover:bg-danger/10`}
+                  disabled={busy || deleting}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Delete “${name.trim() || "this account"}”? This cannot be undone.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    setDeleting(true);
+                    setError(null);
+                    void Promise.resolve(onDelete())
+                      .catch((err) => {
+                        setError(
+                          err instanceof Error ? err.message : "Delete failed",
+                        );
+                      })
+                      .finally(() => setDeleting(false));
+                  }}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
               ) : (
                 <span />
               )}
-              <button type="submit" className={primaryBtnClass} disabled={busy}>
+              <button
+                type="submit"
+                className={primaryBtnClass}
+                disabled={busy || deleting}
+              >
                 {busy
                   ? "Saving…"
                   : mode === "create"
@@ -593,6 +626,7 @@ export function AccountWizard({
   initial,
   onClose,
   onSubmit,
+  onDelete,
 }: AccountWizardProps) {
   if (!open) return null;
 
@@ -602,6 +636,7 @@ export function AccountWizard({
       initial={initial}
       onClose={onClose}
       onSubmit={onSubmit}
+      onDelete={onDelete}
     />
   );
 }

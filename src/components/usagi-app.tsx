@@ -163,6 +163,17 @@ export function UsagiApp() {
     await refresh();
   }
 
+  async function handleDelete() {
+    if (!editingCard) return;
+    const res = await fetch(`/api/accounts/${editingCard.account.id}`, {
+      method: "DELETE",
+    });
+    const json = (await res.json()) as { error?: string };
+    if (!res.ok) throw new Error(json.error ?? "Delete failed");
+    closeWizard();
+    await refresh();
+  }
+
   const wizardInitial = editingCard
     ? {
         provider: editingCard.account.provider,
@@ -251,6 +262,7 @@ export function UsagiApp() {
         initial={wizardInitial}
         onClose={closeWizard}
         onSubmit={handleSubmit}
+        onDelete={editingId ? handleDelete : undefined}
       />
     </div>
   );
