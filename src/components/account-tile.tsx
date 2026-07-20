@@ -140,7 +140,46 @@ export function AccountTile({
           <p className="m-0 text-sm text-danger">Re-auth required</p>
         ) : null}
 
-        {usage?.status === "error" || usage?.status === "unavailable" ? (
+        {usage == null ? (
+          <div
+            className="flex min-h-0 min-w-0 flex-col gap-2.5"
+            aria-busy="true"
+            aria-label="Loading usage"
+          >
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between gap-3">
+                <span
+                  className="block h-2.5 w-14 rounded-md bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  aria-hidden
+                />
+                <span
+                  className="block h-2.5 w-10 rounded-md bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  aria-hidden
+                />
+              </div>
+              <span
+                className="block h-2 w-full rounded-full bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                aria-hidden
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between gap-3">
+                <span
+                  className="block h-2.5 w-16 rounded-md bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  aria-hidden
+                />
+                <span
+                  className="block h-2.5 w-10 rounded-md bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  aria-hidden
+                />
+              </div>
+              <span
+                className="block h-2 w-full rounded-full bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                aria-hidden
+              />
+            </div>
+          </div>
+        ) : usage.status === "error" || usage.status === "unavailable" ? (
           <p className="m-0 text-sm text-danger">
             {usage.error ?? "Usage unavailable"}
           </p>

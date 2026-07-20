@@ -4,6 +4,8 @@ const TEAM_MGMT = "https://admin-api.exa.ai/team-management";
 const TEAMS_ME = "https://api.exa.ai/websets/v0/teams/me";
 /** Exa usage lookback max for spend-against-budget (documented API cap). */
 const BUDGET_LOOKBACK_MS = 180 * 86_400_000;
+/** Fail fast — Exa admin API is often slow; long waits stall the board tile. */
+const EXA_TIMEOUT_MS = 8_000;
 
 type ExaApiKey = {
   id: string;
@@ -34,11 +36,48 @@ type ExaTeamInfo = {
 };
 
 type SpendWindows = {
-  spend3d: number;
-  spend7d: number;
+  spend3d: number | null;
+  spend7d: number | null;
   spend30d: number;
   keyName?: string | null;
 };
+
+export type ExaFetchDetail = "fast" | "full";
+
+function isTimeoutError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.name === "TimeoutError" ||
+    err.name === "AbortError" ||
+    /timed out|aborted/i.test(err.message)
+  );
+}
+
+async function fetchExa(
+  url: string,
+  init: RequestInit,
+  options?: { retries?: number },
+): Promise<Response> {
+  const retries = options?.retries ?? 0;
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(EXA_TIMEOUT_MS),
+      });
+    } catch (err) {
+      lastError = err;
+      if (!isTimeoutError(err) || attempt === retries) break;
+    }
+  }
+  if (isTimeoutError(lastError)) {
+    throw new Error("Exa timed out — try again shortly");
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Exa request failed");
+}
 
 function usdMeter(input: {
   id: string;
@@ -108,23 +147,38 @@ async function fetchKeyUsage(
     url.searchParams.set("start_date", range.start);
     url.searchParams.set("end_date", range.end);
   }
-  const res = await fetch(url, {
-    headers: {
-      "x-api-key": serviceKey,
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as ExaKeyUsageResponse;
+  try {
+    const res = await fetchExa(url.toString(), {
+      headers: {
+        "x-api-key": serviceKey,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ExaKeyUsageResponse;
+  } catch (err) {
+    if (isTimeoutError(err) || /timed out/i.test(String(err))) return null;
+    throw err;
+  }
 }
 
 async function fetchKeySpendWindows(
   serviceKey: string,
   keyId: string,
   nowMs: number,
+  detail: ExaFetchDetail,
 ): Promise<SpendWindows> {
   const end = toIso(nowMs);
+  if (detail === "fast") {
+    const u30 = await fetchKeyUsage(serviceKey, keyId);
+    return {
+      spend3d: null,
+      spend7d: null,
+      spend30d: u30?.total_cost_usd ?? 0,
+      keyName: u30?.api_key_name,
+    };
+  }
+
   const [u3, u7, u30] = await Promise.all([
     fetchKeyUsage(serviceKey, keyId, {
       start: toIso(nowMs - 3 * 86_400_000),
@@ -146,23 +200,33 @@ async function fetchKeySpendWindows(
 }
 
 function spendMeters(totals: SpendWindows): UsageMeter[] {
-  return [
-    usdMeter({
-      id: "spend-3d",
-      label: "3d spend",
-      used: totals.spend3d,
-    }),
-    usdMeter({
-      id: "spend-7d",
-      label: "7d spend",
-      used: totals.spend7d,
-    }),
+  const meters: UsageMeter[] = [];
+  if (totals.spend3d != null) {
+    meters.push(
+      usdMeter({
+        id: "spend-3d",
+        label: "3d spend",
+        used: totals.spend3d,
+      }),
+    );
+  }
+  if (totals.spend7d != null) {
+    meters.push(
+      usdMeter({
+        id: "spend-7d",
+        label: "7d spend",
+        used: totals.spend7d,
+      }),
+    );
+  }
+  meters.push(
     usdMeter({
       id: "spend-30d",
       label: "30d spend",
       used: totals.spend30d,
     }),
-  ];
+  );
+  return meters;
 }
 
 function keyBudgetMeter(input: {
@@ -196,24 +260,47 @@ function parseTeamLabel(message: string | undefined): string | undefined {
  * Exa usage fetch.
  *
  * Prefer a Team Management **service key** (`apiKey`): lists keys and loads
- * 3d / 7d / 30d spend. Optional `keyId` scopes to one search key.
+ * spend windows. Optional `keyId` scopes to one search key.
  * When that key has `budgetCents`, also shows a Key budget remaining bar
  * (180d spend vs budget — not team wallet balance).
+ *
+ * `detail: "fast"` (cold load) fetches 30d + budget only.
+ * `detail: "full"` adds 3d / 7d windows. Budget always runs in parallel with windows.
  */
 export async function fetchExaUsage(
   account: Extract<Account, { provider: "exa" }>,
+  options?: { detail?: ExaFetchDetail },
 ): Promise<AccountUsage> {
   const apiKey = account.credentials.apiKey;
   const preferredKeyId = account.credentials.keyId?.trim();
   const nowMs = Date.now();
+  const detail = options?.detail ?? "full";
 
-  const listRes = await fetch(`${TEAM_MGMT}/api-keys`, {
-    headers: {
-      "x-api-key": apiKey,
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
+  let listRes: Response;
+  try {
+    listRes = await fetchExa(
+      `${TEAM_MGMT}/api-keys`,
+      {
+        headers: {
+          "x-api-key": apiKey,
+          Accept: "application/json",
+        },
+      },
+      { retries: 1 },
+    );
+  } catch (err) {
+    // List timeout/network: hard fail — do not fall through to teams/me (doubles wait).
+    const message =
+      err instanceof Error ? err.message : "Exa timed out — try again shortly";
+    return {
+      accountId: account.id,
+      provider: "exa",
+      meters: [],
+      fetchedAt: nowMs,
+      status: "error",
+      error: message,
+    };
+  }
 
   if (listRes.status === 429) {
     return {
@@ -256,46 +343,60 @@ export async function fetchExaUsage(
       };
     }
 
-    const windows = await Promise.all(
-      targets.map((key) => fetchKeySpendWindows(apiKey, key.id, nowMs)),
+    // Windows + optional budget in parallel (budget used to be sequential after windows).
+    const perKey = await Promise.all(
+      targets.map(async (key) => {
+        const budgetUsd =
+          targets.length === 1 &&
+          key.budgetCents != null &&
+          key.budgetCents > 0
+            ? key.budgetCents / 100
+            : null;
+
+        const [windows, againstBudget] = await Promise.all([
+          fetchKeySpendWindows(apiKey, key.id, nowMs, detail),
+          budgetUsd != null
+            ? fetchKeyUsage(apiKey, key.id, {
+                start: toIso(nowMs - BUDGET_LOOKBACK_MS),
+                end: toIso(nowMs),
+              })
+            : Promise.resolve(null),
+        ]);
+
+        return { key, windows, budgetUsd, againstBudget };
+      }),
     );
 
     const totals: SpendWindows = {
-      spend3d: 0,
-      spend7d: 0,
+      spend3d: detail === "full" ? 0 : null,
+      spend7d: detail === "full" ? 0 : null,
       spend30d: 0,
       keyName: null,
     };
-    for (let i = 0; i < targets.length; i++) {
-      const w = windows[i]!;
-      const key = targets[i]!;
-      totals.spend3d += w.spend3d;
-      totals.spend7d += w.spend7d;
+    for (const row of perKey) {
+      const w = row.windows;
       totals.spend30d += w.spend30d;
+      if (totals.spend3d != null && w.spend3d != null) {
+        totals.spend3d += w.spend3d;
+      }
+      if (totals.spend7d != null && w.spend7d != null) {
+        totals.spend7d += w.spend7d;
+      }
       if (!totals.keyName) {
-        totals.keyName = w.keyName ?? key.name;
+        totals.keyName = w.keyName ?? row.key.name;
       }
     }
 
     const meters = spendMeters(totals);
 
-    // Per-key budgets only make sense for a single scoped key.
-    if (targets.length === 1) {
-      const key = targets[0]!;
-      const budgetUsd =
-        key.budgetCents != null && key.budgetCents > 0
-          ? key.budgetCents / 100
-          : null;
-      if (budgetUsd != null) {
-        const againstBudget = await fetchKeyUsage(apiKey, key.id, {
-          start: toIso(nowMs - BUDGET_LOOKBACK_MS),
-          end: toIso(nowMs),
-        });
+    if (perKey.length === 1) {
+      const row = perKey[0]!;
+      if (row.budgetUsd != null) {
         meters.unshift(
           keyBudgetMeter({
-            budgetUsd,
-            usedUsd: againstBudget?.total_cost_usd ?? 0,
-            isOverBudget: key.isOverBudget,
+            budgetUsd: row.budgetUsd,
+            usedUsd: row.againstBudget?.total_cost_usd ?? 0,
+            isOverBudget: row.key.isOverBudget,
           }),
         );
       }
@@ -313,13 +414,27 @@ export async function fetchExaUsage(
   }
 
   // Regular search API key — validate without burning search credits.
-  const teamRes = await fetch(TEAMS_ME, {
-    headers: {
-      "x-api-key": apiKey,
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
+  // Only reached when list returned a non-timeout HTTP error (not a service key).
+  let teamRes: Response;
+  try {
+    teamRes = await fetchExa(TEAMS_ME, {
+      headers: {
+        "x-api-key": apiKey,
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Exa timed out — try again shortly";
+    return {
+      accountId: account.id,
+      provider: "exa",
+      meters: [],
+      fetchedAt: nowMs,
+      status: "error",
+      error: message,
+    };
+  }
 
   if (teamRes.status === 429) {
     return {

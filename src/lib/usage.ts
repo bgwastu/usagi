@@ -1,4 +1,9 @@
-import type { Account, AccountUsage, ProviderId } from "@/lib/types";
+import type {
+  Account,
+  AccountCardModel,
+  AccountUsage,
+  ProviderId,
+} from "@/lib/types";
 import { fetchCodexUsage, refreshCodexCredentials } from "@/providers/codex";
 import { fetchCursorUsage } from "@/providers/cursor";
 import { fetchOpenCodeGoUsage } from "@/providers/opencode-go";
@@ -7,18 +12,20 @@ import { fetchExaUsage } from "@/providers/exa";
 import { fetchComposioUsage } from "@/providers/composio";
 import { saveAccount } from "@/lib/db";
 import { PROVIDER_META } from "@/lib/types";
+import {
+  clearPersistedUsageCache,
+  readPersistedUsageCache,
+  removePersistedUsageEntry,
+  schedulePersistUsageCache,
+  type PersistedCacheEntry,
+} from "@/lib/usage-cache-store";
 
-type CacheEntry = {
-  usage: AccountUsage;
-  /** Wall clock when this entry was last written. */
-  fetchedAt: number;
-  /** Earliest time a live provider fetch is allowed again. */
-  nextFetchAt: number;
-};
+type CacheEntry = PersistedCacheEntry;
 
 type GlobalUsageCache = typeof globalThis & {
   __usagiUsageCache?: Map<string, CacheEntry>;
   __usagiCredentialCooldown?: Map<string, number>;
+  __usagiUsageCacheHydrated?: boolean;
 };
 
 const globalStore = globalThis as GlobalUsageCache;
@@ -32,6 +39,20 @@ globalStore.__usagiUsageCache = usageCache;
 const credentialCooldown =
   globalStore.__usagiCredentialCooldown ?? new Map<string, number>();
 globalStore.__usagiCredentialCooldown = credentialCooldown;
+
+function hydrateUsageCacheFromDisk() {
+  if (globalStore.__usagiUsageCacheHydrated) return;
+  globalStore.__usagiUsageCacheHydrated = true;
+  if (usageCache.size > 0) return;
+  for (const [id, entry] of readPersistedUsageCache()) {
+    usageCache.set(id, entry);
+  }
+}
+
+function writeCacheEntry(accountId: string, entry: CacheEntry) {
+  usageCache.set(accountId, entry);
+  schedulePersistUsageCache(usageCache);
+}
 
 function credentialCooldownKey(account: Account): string {
   switch (account.provider) {
@@ -77,10 +98,65 @@ function rateLimitedPlaceholder(account: Account): AccountUsage {
   };
 }
 
+/** Instant board shell: accounts + last-known usage (memory/disk), no live fetches. */
+export function buildAccountShell(
+  accounts: Account[],
+): AccountCardModel[] {
+  hydrateUsageCacheFromDisk();
+  return accounts.map((account) => ({
+    account,
+    usage: usageCache.get(account.id)?.usage ?? null,
+  }));
+}
+
+export function getCachedUsage(accountId: string): AccountUsage | null {
+  hydrateUsageCacheFromDisk();
+  return usageCache.get(accountId)?.usage ?? null;
+}
+
+function needsLiveFetch(account: Account, force?: boolean): boolean {
+  hydrateUsageCacheFromDisk();
+  const now = Date.now();
+  const cached = usageCache.get(account.id);
+  const sharedCooldownUntil =
+    credentialCooldown.get(credentialCooldownKey(account)) ?? 0;
+  const nextFetchAt = Math.max(cached?.nextFetchAt ?? 0, sharedCooldownUntil);
+  const inHardRateLimit = sharedCooldownUntil > now;
+
+  if (inHardRateLimit) return false;
+  if (force) return true;
+  if (!cached) return true;
+  return nextFetchAt <= now;
+}
+
+/**
+ * Live-fetch usage for accounts that are past their refresh window.
+ * Safe to call from a background poll — board can already show stale meters.
+ */
+export async function refreshAccountUsages(
+  accounts: Account[],
+  options?: { force?: boolean },
+): Promise<AccountCardModel[]> {
+  hydrateUsageCacheFromDisk();
+  const results = await Promise.all(
+    accounts.map(async (account) => {
+      if (!needsLiveFetch(account, options?.force)) {
+        return {
+          account,
+          usage: usageCache.get(account.id)?.usage ?? null,
+        };
+      }
+      return fetchUsageForAccount(account, { force: options?.force });
+    }),
+  );
+  return results;
+}
+
 export async function fetchUsageForAccount(
   account: Account,
   options?: { force?: boolean },
 ): Promise<{ account: Account; usage: AccountUsage }> {
+  hydrateUsageCacheFromDisk();
   const now = Date.now();
   const minMs = PROVIDER_META[account.provider].minRefreshMs;
   const rateLimitBackoffMs =
@@ -112,9 +188,15 @@ export async function fetchUsageForAccount(
     }
   }
 
+  const hasFreshMeters =
+    cached?.usage.status === "ok" && cached.usage.meters.length > 0;
+
   let usage: AccountUsage;
   try {
-    usage = await fetchProviderUsage(working);
+    usage = await fetchProviderUsage(working, {
+      // Cold / error tiles: one Exa window. Warm tiles: full 3d/7d/30d.
+      exaDetail: hasFreshMeters ? "full" : "fast",
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown provider error";
@@ -143,7 +225,7 @@ export async function fetchUsageForAccount(
     }
   }
 
-  usageCache.set(working.id, {
+  writeCacheEntry(working.id, {
     usage,
     fetchedAt: now,
     nextFetchAt: entryNextFetchAt,
@@ -151,7 +233,10 @@ export async function fetchUsageForAccount(
   return { account: working, usage };
 }
 
-async function fetchProviderUsage(account: Account): Promise<AccountUsage> {
+async function fetchProviderUsage(
+  account: Account,
+  options?: { exaDetail?: "fast" | "full" },
+): Promise<AccountUsage> {
   switch (account.provider) {
     case "codex":
       return fetchCodexUsage(account);
@@ -160,7 +245,7 @@ async function fetchProviderUsage(account: Account): Promise<AccountUsage> {
     case "tavily":
       return fetchTavilyUsage(account);
     case "exa":
-      return fetchExaUsage(account);
+      return fetchExaUsage(account, { detail: options?.exaDetail ?? "full" });
     case "composio":
       return fetchComposioUsage(account);
     case "cursor":
@@ -173,8 +258,14 @@ async function fetchProviderUsage(account: Account): Promise<AccountUsage> {
 }
 
 export function invalidateUsageCache(accountId?: string) {
-  if (accountId) usageCache.delete(accountId);
-  else usageCache.clear();
+  hydrateUsageCacheFromDisk();
+  if (accountId) {
+    usageCache.delete(accountId);
+    removePersistedUsageEntry(accountId);
+  } else {
+    usageCache.clear();
+    clearPersistedUsageCache();
+  }
 }
 
 export function providerIds(): ProviderId[] {

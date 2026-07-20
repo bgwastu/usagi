@@ -8,37 +8,70 @@ import {
   useRef,
   useState,
 } from "react";
-import { AccountsBoard } from "@/components/accounts-board";
-import {
-  AccountWizard,
-  type WizardDraft,
-} from "@/components/account-wizard";
+import dynamic from "next/dynamic";
 import { AccountsLoading } from "@/components/accounts-loading";
 import { reorderCardsByIds } from "@/lib/board-layout";
 import type { AccountCardModel, ComposioPlanId } from "@/lib/types";
+import type { WizardDraft } from "@/components/account-wizard";
+
+const AccountsBoard = dynamic(
+  () =>
+    import("@/components/accounts-board").then((m) => ({
+      default: m.AccountsBoard,
+    })),
+  { loading: () => <AccountsLoading />, ssr: false },
+);
+
+const AccountWizard = dynamic(
+  () =>
+    import("@/components/account-wizard").then((m) => ({
+      default: m.AccountWizard,
+    })),
+  { ssr: false },
+);
 
 const REFRESH_MS = 5_000;
 
 const addBtnClass =
   "shrink-0 cursor-pointer whitespace-nowrap rounded-md border border-accent bg-accent px-4 py-2.5 font-display text-sm font-semibold text-accent-ink transition-[transform,filter] duration-220 ease-out hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
 
-export function UsagiApp() {
-  const [cards, setCards] = useState<AccountCardModel[]>([]);
-  const [loading, setLoading] = useState(true);
+type UsagiAppProps = {
+  /** SSR shell: accounts + last-known usage (may be null). */
+  initialCards?: AccountCardModel[];
+};
+
+export function UsagiApp({ initialCards }: UsagiAppProps) {
+  const [cards, setCards] = useState<AccountCardModel[]>(
+    () => initialCards ?? [],
+  );
+  const [loading, setLoading] = useState(() => initialCards == null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [, setClock] = useState(() => Date.now());
   const pauseRefreshRef = useRef(false);
+  const hasCardsRef = useRef((initialCards?.length ?? 0) > 0);
 
   const editingCard = useMemo(
     () => cards.find((card) => card.account.id === editingId) ?? null,
     [cards, editingId],
   );
 
-  const refresh = useCallback(async () => {
+  const applyCards = useCallback((next: AccountCardModel[]) => {
+    hasCardsRef.current = next.length > 0;
+    setCards(next);
+    setLoadError(null);
+    setLoading(false);
+    setClock(Date.now());
+  }, []);
+
+  /** Instant shell — accounts + cached meters, no live provider calls. */
+  const refreshShell = useCallback(async () => {
     if (pauseRefreshRef.current) return;
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "hidden"
+    ) {
       return;
     }
     try {
@@ -54,10 +87,7 @@ export function UsagiApp() {
           setLoading(false);
           return;
         }
-        setCards(json.accounts ?? []);
-        setLoadError(null);
-        setLoading(false);
-        setClock(Date.now());
+        applyCards(json.accounts ?? []);
       });
     } catch (error) {
       startTransition(() => {
@@ -66,25 +96,75 @@ export function UsagiApp() {
         setLoading(false);
       });
     }
-  }, []);
+  }, [applyCards]);
+
+  /** Live usage refresh — may be slow; board should already be painted. */
+  const refreshUsage = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (pauseRefreshRef.current) return;
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+      try {
+        const qs = options?.force ? "?force=1" : "";
+        const res = await fetch(`/api/accounts/usage${qs}`, {
+          cache: "no-store",
+        });
+        const json = (await res.json()) as {
+          accounts?: AccountCardModel[];
+          error?: string;
+        };
+        startTransition(() => {
+          if (pauseRefreshRef.current) return;
+          if (!res.ok) {
+            // Keep shell visible; surface error only if we have no cards yet.
+            if (!hasCardsRef.current) {
+              setLoadError(json.error ?? "Failed to refresh usage");
+            }
+            return;
+          }
+          applyCards(json.accounts ?? []);
+        });
+      } catch {
+        // Soft-fail usage refresh; shell/cached meters stay up.
+      }
+    },
+    [applyCards],
+  );
 
   useEffect(() => {
-    const boot = window.setTimeout(() => {
-      void refresh();
+    let cancelled = false;
+
+    async function boot() {
+      if (initialCards == null) {
+        await refreshShell();
+      } else {
+        setLoading(false);
+      }
+      if (cancelled) return;
+      await refreshUsage();
+    }
+
+    const bootTimer = window.setTimeout(() => {
+      void boot();
     }, 0);
     const id = window.setInterval(() => {
-      void refresh();
+      void refreshUsage();
     }, REFRESH_MS);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") void refreshUsage();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      window.clearTimeout(boot);
+      cancelled = true;
+      window.clearTimeout(bootTimer);
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refresh]);
+  }, [initialCards, refreshShell, refreshUsage]);
 
   function openCreate() {
     setEditingId(null);
@@ -160,7 +240,8 @@ export function UsagiApp() {
       if (!res.ok) throw new Error(json.error ?? "Create failed");
     }
     closeWizard();
-    await refresh();
+    await refreshShell();
+    await refreshUsage({ force: true });
   }
 
   async function handleDelete() {
@@ -171,7 +252,7 @@ export function UsagiApp() {
     const json = (await res.json()) as { error?: string };
     if (!res.ok) throw new Error(json.error ?? "Delete failed");
     closeWizard();
-    await refresh();
+    await refreshShell();
   }
 
   const wizardInitial = editingCard
@@ -230,7 +311,7 @@ export function UsagiApp() {
           ) : loadError ? (
             <p className="text-danger">{loadError}</p>
           ) : cards.length === 0 ? (
-            <section className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center">
+            <section className="mx-auto mt-16 flex max-w-md flex-col gap-4 text-center items-center">
               <h1 className="m-0 font-display text-[clamp(2.25rem,4vw+0.5rem,3rem)] font-semibold tracking-[-0.03em]">
                 No accounts yet
               </h1>
@@ -255,15 +336,17 @@ export function UsagiApp() {
         </main>
       </div>
 
-      <AccountWizard
-        key={editingId ?? "create"}
-        open={wizardOpen}
-        mode={editingId ? "edit" : "create"}
-        initial={wizardInitial}
-        onClose={closeWizard}
-        onSubmit={handleSubmit}
-        onDelete={editingId ? handleDelete : undefined}
-      />
+      {wizardOpen ? (
+        <AccountWizard
+          key={editingId ?? "create"}
+          open={wizardOpen}
+          mode={editingId ? "edit" : "create"}
+          initial={wizardInitial}
+          onClose={closeWizard}
+          onSubmit={handleSubmit}
+          onDelete={editingId ? handleDelete : undefined}
+        />
+      ) : null}
     </div>
   );
 }

@@ -104,6 +104,7 @@ export async function exchangeCodexCode(input: {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(`Codex token exchange failed (${res.status})`);
@@ -150,6 +151,7 @@ export async function refreshCodexCredentials(account: Extract<
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -203,6 +205,7 @@ export async function fetchCodexUsage(
         ? { "ChatGPT-Account-ID": account.credentials.accountId }
         : {}),
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (res.status === 401 || res.status === 403) {

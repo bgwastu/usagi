@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { listAccounts, saveAccount } from "@/lib/db";
-import { fetchUsageForAccount } from "@/lib/usage";
+import { buildAccountShell, fetchUsageForAccount } from "@/lib/usage";
 import {
   DEFAULT_SPAN,
   type Account,
@@ -17,17 +17,11 @@ import { parseOAuthCallbackUrl, takePkceVerifier } from "@/lib/oauth-pkce";
 
 export const runtime = "nodejs";
 
+/** Instant shell: accounts + cached usage only. Live meters via GET /api/accounts/usage. */
 export async function GET() {
   try {
     const accounts = await listAccounts();
-    const cards = await Promise.all(
-      accounts.map(async (account) => {
-        const { account: nextAccount, usage } =
-          await fetchUsageForAccount(account);
-        return { account: nextAccount, usage };
-      }),
-    );
-    return NextResponse.json({ accounts: cards });
+    return NextResponse.json({ accounts: buildAccountShell(accounts) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to load accounts";
