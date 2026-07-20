@@ -89,7 +89,10 @@ export function AccountsBoard({
       if (draggingRef.current) return;
       const next = new Map<string, number>();
       for (const [id, node] of contentEls.current) {
-        const contentPx = Math.ceil(node.getBoundingClientRect().height);
+        // scrollHeight tracks intrinsic content even when the grid cell is shorter.
+        const contentPx = Math.ceil(
+          Math.max(node.scrollHeight, node.getBoundingClientRect().height),
+        );
         if (contentPx > 0) next.set(id, contentPx + TILE_PADDING_Y);
       }
       setHeightPxById((prev) => (mapsEqualRows(prev, next) ? prev : next));

@@ -203,8 +203,29 @@ export function reorderCardsByIds(
 export function cardsLayoutKey(cards: AccountCardModel[]): string {
   return cards
     .map((card) => {
-      const meters = card.usage?.meters?.length ?? 0;
-      return `${card.account.id}:${card.account.span}:${meters}`;
+      const meters = card.usage?.meters ?? [];
+      const meterSig = meters
+        .map((meter) => {
+          const hasReset = meter.resetsAt != null ? 1 : 0;
+          const hasBar =
+            meter.kind === "window" ||
+            meter.usedPercent != null ||
+            ((meter.kind === "credits" || meter.kind === "balance") &&
+              meter.limit != null &&
+              meter.limit > 0)
+              ? 1
+              : 0;
+          return `${meter.id}:${meter.kind}:${hasBar}:${hasReset}`;
+        })
+        .join(",");
+      return [
+        card.account.id,
+        card.account.span,
+        card.account.authStatus,
+        card.usage?.status ?? "",
+        card.usage?.plan ? 1 : 0,
+        meterSig,
+      ].join(":");
     })
     .join("|");
 }

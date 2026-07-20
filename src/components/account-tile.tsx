@@ -112,7 +112,8 @@ export function AccountTile({
       }}
       aria-label={`${meta.displayName} account ${account.name}. Activate to edit. Use the drag handle to rearrange.`}
     >
-      <div ref={measureRef} className="flex min-h-0 min-w-0 flex-col gap-3">
+      {/* shrink-0 so the board can measure intrinsic height (h-full parent must not clip it). */}
+      <div ref={measureRef} className="flex w-full shrink-0 flex-col gap-3">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-md border border-rule bg-paper-3 text-ink">
