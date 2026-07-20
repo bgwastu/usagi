@@ -205,7 +205,12 @@ body {
 }
 
 .usagi-board .usagi-drag-handle {
+  cursor: grab;
   touch-action: none;
+}
+
+.usagi-board .usagi-drag-handle:active {
+  cursor: grabbing;
 }
 
 .usagi-board .react-grid-item.react-grid-placeholder {

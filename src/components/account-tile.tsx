@@ -24,7 +24,7 @@ const CLICK_SLOP_PX = 6;
 function DragHandle() {
   return (
     <span
-      className={`${BOARD_DRAG_HANDLE_CLASS} -mr-1.5 -mt-1.5 grid size-9 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted transition-colors duration-220 ease-[var(--ease-out)] hover:bg-paper-3 hover:text-ink active:cursor-grabbing`}
+      className={`${BOARD_DRAG_HANDLE_CLASS} -mr-1.5 -mt-1.5 grid size-9 shrink-0 touch-none place-items-center rounded-md text-muted transition-colors duration-220 ease-out hover:bg-paper-3 hover:text-ink`}
       aria-hidden
       title="Drag to rearrange"
     >
@@ -87,7 +87,7 @@ export function AccountTile({
   return (
     <button
       type="button"
-      className="box-border flex h-full w-full min-h-0 min-w-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-[var(--ease-out)] hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus motion-safe:animate-[tile-fade_420ms_var(--ease-out)_both]"
+      className="box-border flex h-full w-full min-h-0 min-w-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-out hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus motion-safe:animate-[tile-fade_420ms_var(--ease-out)_both]"
       style={{ animationDelay: `${index * 70}ms` }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
