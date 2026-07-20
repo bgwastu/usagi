@@ -22,6 +22,7 @@ import {
   orderedIdsFromLayout,
   pxToRows,
   reorderCardsByIds,
+  type BoardBreakpoint,
 } from "@/lib/board-layout";
 import type { AccountCardModel } from "@/lib/types";
 
@@ -44,6 +45,12 @@ function mapsEqualRows(
     if (other == null || pxToRows(px) !== pxToRows(other)) return false;
   }
   return true;
+}
+
+function breakpointForWidth(width: number): BoardBreakpoint {
+  if (width >= BOARD_BREAKPOINTS.lg) return "lg";
+  if (width >= BOARD_BREAKPOINTS.sm) return "sm";
+  return "xs";
 }
 
 export function AccountsBoard({
@@ -69,7 +76,10 @@ export function AccountsBoard({
     null,
   );
   const [dragKey, setDragKey] = useState<string | null>(null);
+  const [settling, setSettling] = useState(false);
   const draggingRef = useRef(false);
+  const dragLayoutsRef = useRef<ResponsiveLayouts | null>(null);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useLayoutEffect(() => {
     const nodes = [...contentEls.current.values()];
@@ -93,12 +103,32 @@ export function AccountsBoard({
     return () => observer.disconnect();
   }, [layoutKey, cards]);
 
+  useLayoutEffect(() => {
+    return () => {
+      if (settleTimerRef.current != null) clearTimeout(settleTimerRef.current);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    dragLayoutsRef.current = dragLayouts;
+  }, [dragLayouts]);
+
+  // Drop the drag snapshot once parent order matches (avoids a one-frame flash).
   if (dragKey !== null && dragKey === layoutKey) {
     setDragLayouts(null);
     setDragKey(null);
   }
 
   const layouts = dragLayouts ?? baseLayouts;
+
+  function armSettling() {
+    setSettling(true);
+    if (settleTimerRef.current != null) clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      setSettling(false);
+    }, 120);
+  }
 
   function handleDragStart() {
     draggingRef.current = true;
@@ -116,7 +146,15 @@ export function AccountsBoard({
     if (!unchanged) {
       const nextCards = reorderCardsByIds(cards, orderedIds);
       const nextKey = cardsLayoutKey(nextCards);
-      setDragLayouts(layoutsFromCards(nextCards, heightPxById));
+      const bp = breakpointForWidth(width);
+      // Keep RGL's drop positions; only fill missing breakpoints via pack.
+      const nextLayouts: ResponsiveLayouts = {
+        ...(dragLayoutsRef.current ??
+          layoutsFromCards(nextCards, heightPxById)),
+        [bp]: layout,
+      };
+      armSettling();
+      setDragLayouts(nextLayouts);
       setDragKey(nextKey);
       onReorder(orderedIds);
     } else {
@@ -131,7 +169,7 @@ export function AccountsBoard({
     <div ref={containerRef} className="w-full" aria-label="Provider accounts">
       {mounted && width > 0 ? (
         <ResponsiveGridLayout
-          className="usagi-board"
+          className={`usagi-board${settling ? " usagi-board--settling" : ""}`}
           width={width}
           layouts={layouts}
           breakpoints={BOARD_BREAKPOINTS}

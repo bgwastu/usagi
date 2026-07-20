@@ -9,17 +9,34 @@ import type { UsageMeter } from "@/lib/types";
 type MeterBarProps = {
   meter: UsageMeter;
   compact?: boolean;
+  /** Stable id so fill entrance survives grid remounts after drag. */
+  entranceKey?: string;
 };
 
 type MeterTrackProps = {
   usedPct: number;
   remainingPct: number;
   label: string;
+  entranceKey?: string;
 };
 
-function MeterTrack({ usedPct, remainingPct, label }: MeterTrackProps) {
+/** Fills that already played — survives RGL remounts on drop/reorder. */
+const playedMeterEntrances = new Set<string>();
+
+function MeterTrack({
+  usedPct,
+  remainingPct,
+  label,
+  entranceKey,
+}: MeterTrackProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+  const [entrance, setEntrance] = useState(() => {
+    if (!entranceKey) return true;
+    if (playedMeterEntrances.has(entranceKey)) return false;
+    playedMeterEntrances.add(entranceKey);
+    return true;
+  });
 
   function showTip() {
     const el = trackRef.current;
@@ -49,8 +66,16 @@ function MeterTrack({ usedPct, remainingPct, label }: MeterTrackProps) {
       >
         <div className="h-1.5 overflow-hidden rounded-full bg-meter-track">
           <div
-            className={`h-full origin-left rounded-full motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both] ${meterFillClass(usedPct)}`}
+            className={`h-full origin-left rounded-full ${meterFillClass(usedPct)}${
+              entrance
+                ? " motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both]"
+                : ""
+            }`}
             style={{ width: `${remainingPct}%` }}
+            onAnimationEnd={(event) => {
+              if (event.target !== event.currentTarget) return;
+              setEntrance(false);
+            }}
           />
         </div>
       </div>
@@ -74,7 +99,11 @@ function MeterTrack({ usedPct, remainingPct, label }: MeterTrackProps) {
   );
 }
 
-export function MeterBar({ meter, compact = false }: MeterBarProps) {
+export function MeterBar({
+  meter,
+  compact = false,
+  entranceKey,
+}: MeterBarProps) {
   if (meter.kind === "credits" || meter.kind === "balance") {
     const hasLimit = meter.limit != null && meter.limit > 0;
     const usedPct =
@@ -120,6 +149,7 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
             usedPct={usedPct}
             remainingPct={remainingPct}
             label={meter.label}
+            entranceKey={entranceKey}
           />
         ) : null}
         {!compact && hasLimit && meter.resetsAt != null ? (
@@ -153,6 +183,7 @@ export function MeterBar({ meter, compact = false }: MeterBarProps) {
         usedPct={used}
         remainingPct={remaining}
         label={meter.label}
+        entranceKey={entranceKey}
       />
       {!compact ? (
         <p className="m-0 text-xs text-ink-2">

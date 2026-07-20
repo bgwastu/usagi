@@ -2,6 +2,7 @@
 
 import {
   useRef,
+  useState,
   type KeyboardEvent,
   type PointerEvent,
   type Ref,
@@ -20,6 +21,9 @@ type AccountTileProps = {
 };
 
 const CLICK_SLOP_PX = 6;
+
+const tileClassName =
+  "box-border flex h-full w-full min-h-0 min-w-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-out hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
 
 function DragHandle() {
   return (
@@ -57,6 +61,9 @@ export function AccountTile({
   const meters = usage?.meters ?? [];
   const pointerOrigin = useRef<{ x: number; y: number } | null>(null);
   const didDrag = useRef(false);
+  // One-shot entrance: remove after first play so reorder cannot restart fade.
+  const [entrance, setEntrance] = useState(true);
+  const [entranceDelayMs] = useState(() => index * 70);
 
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
     pointerOrigin.current = { x: event.clientX, y: event.clientY };
@@ -87,12 +94,22 @@ export function AccountTile({
   return (
     <button
       type="button"
-      className="box-border flex h-full w-full min-h-0 min-w-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-out hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus motion-safe:animate-[tile-fade_420ms_var(--ease-out)_both]"
-      style={{ animationDelay: `${index * 70}ms` }}
+      className={
+        entrance
+          ? `${tileClassName} motion-safe:animate-[tile-fade_420ms_var(--ease-out)_both]`
+          : tileClassName
+      }
+      style={
+        entrance ? { animationDelay: `${entranceDelayMs}ms` } : undefined
+      }
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        setEntrance(false);
+      }}
       aria-label={`${meta.displayName} account ${account.name}. Activate to edit. Use the drag handle to rearrange.`}
     >
       <div ref={measureRef} className="flex min-h-0 min-w-0 flex-col gap-3">
@@ -129,7 +146,11 @@ export function AccountTile({
         ) : (
           <div className="flex min-h-0 min-w-0 flex-col gap-2">
             {meters.map((meter) => (
-              <MeterBar key={meter.id} meter={meter} />
+              <MeterBar
+                key={meter.id}
+                meter={meter}
+                entranceKey={`${account.id}:${meter.id}`}
+              />
             ))}
           </div>
         )}

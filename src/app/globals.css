@@ -204,6 +204,11 @@ body {
     height 180ms var(--ease-out);
 }
 
+/* Instantly apply packed layout after drop — no post-drag transform flash. */
+.usagi-board.usagi-board--settling .react-grid-item {
+  transition: none;
+}
+
 .usagi-board .usagi-drag-handle {
   cursor: grab;
   touch-action: none;
