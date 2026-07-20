@@ -63,6 +63,7 @@ function WizardPanel({
     initial?.oauthCallbackUrl ?? "",
   );
   const [authorizeUrl, setAuthorizeUrl] = useState<string | null>(null);
+  const [oauthPreparing, setOauthPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -79,27 +80,77 @@ function WizardPanel({
     };
   }, [onClose]);
 
-  async function selectProvider(next: ProviderId) {
-    setProvider(next);
-    setStep("credentials");
+  async function startCodexOauth(options?: { open?: boolean }) {
+    setOauthPreparing(true);
     setError(null);
-    setAuthorizeUrl(null);
-    if (next === "codex" && mode === "create") {
+    try {
+      const res = await fetch("/api/oauth/codex/start", { method: "POST" });
+      const json = (await res.json()) as {
+        authorizeUrl?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.authorizeUrl) {
+        setAuthorizeUrl(null);
+        setError(json.error ?? "Failed to start Codex OAuth");
+        return null;
+      }
+      setAuthorizeUrl(json.authorizeUrl);
+      if (options?.open) {
+        void navigator.clipboard?.writeText(json.authorizeUrl);
+        window.open(json.authorizeUrl, "_blank", "noopener,noreferrer");
+      }
+      return json.authorizeUrl;
+    } catch {
+      setAuthorizeUrl(null);
+      setError("Failed to start Codex OAuth");
+      return null;
+    } finally {
+      setOauthPreparing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (step !== "credentials" || provider !== "codex") return;
+
+    let cancelled = false;
+    setOauthPreparing(true);
+    setError(null);
+
+    void (async () => {
       try {
         const res = await fetch("/api/oauth/codex/start", { method: "POST" });
         const json = (await res.json()) as {
           authorizeUrl?: string;
           error?: string;
         };
+        if (cancelled) return;
         if (!res.ok || !json.authorizeUrl) {
+          setAuthorizeUrl(null);
           setError(json.error ?? "Failed to start Codex OAuth");
           return;
         }
         setAuthorizeUrl(json.authorizeUrl);
+        void navigator.clipboard?.writeText(json.authorizeUrl);
+        window.open(json.authorizeUrl, "_blank", "noopener,noreferrer");
       } catch {
+        if (cancelled) return;
+        setAuthorizeUrl(null);
         setError("Failed to start Codex OAuth");
+      } finally {
+        if (!cancelled) setOauthPreparing(false);
       }
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, provider]);
+
+  function selectProvider(next: ProviderId) {
+    setProvider(next);
+    setStep("credentials");
+    setError(null);
+    setAuthorizeUrl(null);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -466,21 +517,32 @@ function WizardPanel({
               <>
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-rule bg-paper-2 p-4">
                   <p className="m-0 text-sm text-ink-2">
-                    Open the authorize URL, sign in, then paste the localhost
-                    callback URL. Tokens refresh automatically.
+                    {mode === "edit"
+                      ? "Session expired or needs refresh — sign in again, then paste the localhost callback URL."
+                      : "Open the authorize URL, sign in, then paste the localhost callback URL. Tokens refresh automatically."}
                   </p>
                   <button
                     type="button"
                     className={`${secondaryBtnClass} self-start`}
-                    disabled={!authorizeUrl && mode === "create"}
+                    disabled={oauthPreparing}
                     onClick={() => {
                       if (authorizeUrl) {
                         void navigator.clipboard?.writeText(authorizeUrl);
-                        window.open(authorizeUrl, "_blank", "noopener,noreferrer");
+                        window.open(
+                          authorizeUrl,
+                          "_blank",
+                          "noopener,noreferrer",
+                        );
+                        return;
                       }
+                      void startCodexOauth({ open: true });
                     }}
                   >
-                    {authorizeUrl ? "Open authorize URL" : "Preparing OAuth…"}
+                    {oauthPreparing
+                      ? "Preparing OAuth…"
+                      : authorizeUrl
+                        ? "Open authorize URL"
+                        : "Start OAuth"}
                   </button>
                 </div>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
