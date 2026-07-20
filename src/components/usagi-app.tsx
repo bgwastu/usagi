@@ -9,7 +9,9 @@ import {
   useState,
 } from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { AccountsLoading } from "@/components/accounts-loading";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { reorderCardsByIds } from "@/lib/board-layout";
 import type { AccountCardModel, ComposioPlanId } from "@/lib/types";
 import type { WizardDraft } from "@/components/account-wizard";
@@ -41,6 +43,7 @@ type UsagiAppProps = {
 };
 
 export function UsagiApp({ initialCards }: UsagiAppProps) {
+  const t = useTranslations("App");
   const [cards, setCards] = useState<AccountCardModel[]>(
     () => initialCards ?? [],
   );
@@ -83,7 +86,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
       startTransition(() => {
         if (pauseRefreshRef.current) return;
         if (!res.ok) {
-          setLoadError(json.error ?? "Failed to load accounts");
+          setLoadError(json.error ?? t("loadFailed"));
           setLoading(false);
           return;
         }
@@ -92,11 +95,13 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
     } catch (error) {
       startTransition(() => {
         if (pauseRefreshRef.current) return;
-        setLoadError(error instanceof Error ? error.message : "Network error");
+        setLoadError(
+          error instanceof Error ? error.message : t("networkError"),
+        );
         setLoading(false);
       });
     }
-  }, [applyCards]);
+  }, [applyCards, t]);
 
   /** Live usage refresh — may be slow; board should already be painted. */
   const refreshUsage = useCallback(
@@ -224,7 +229,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
         body: JSON.stringify(body),
       });
       const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Update failed");
+      if (!res.ok) throw new Error(json.error ?? t("updateFailed"));
     } else {
       const body: Record<string, unknown> = { ...draft };
       if (draft.provider === "composio") {
@@ -237,7 +242,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
         body: JSON.stringify(body),
       });
       const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Create failed");
+      if (!res.ok) throw new Error(json.error ?? t("createFailed"));
     }
     closeWizard();
     await refreshShell();
@@ -250,7 +255,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
       method: "DELETE",
     });
     const json = (await res.json()) as { error?: string };
-    if (!res.ok) throw new Error(json.error ?? "Delete failed");
+    if (!res.ok) throw new Error(json.error ?? t("deleteFailed"));
     closeWizard();
     await refreshShell();
   }
@@ -300,9 +305,12 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
               />
             </p>
           </div>
-          <button type="button" className={addBtnClass} onClick={openCreate}>
-            Add account
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <LocaleSwitcher />
+            <button type="button" className={addBtnClass} onClick={openCreate}>
+              {t("addAccount")}
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 pb-12">
@@ -313,14 +321,11 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
           ) : cards.length === 0 ? (
             <section className="mx-auto mt-16 flex max-w-md flex-col gap-4 text-center items-center">
               <h1 className="m-0 font-display text-[clamp(2.25rem,4vw+0.5rem,3rem)] font-semibold tracking-[-0.03em]">
-                No accounts yet
+                {t("emptyTitle")}
               </h1>
-              <p className="m-0 text-ink-2">
-                Add a provider account to watch quotas, credits, and reset
-                windows from one board.
-              </p>
+              <p className="m-0 text-ink-2">{t("emptyBody")}</p>
               <button type="button" className={addBtnClass} onClick={openCreate}>
-                Add account
+                {t("addAccount")}
               </button>
             </section>
           ) : (

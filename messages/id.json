@@ -1,0 +1,137 @@
+{
+  "Meta": {
+    "title": "Usagi",
+    "description": "Papan penggunaan provider yang di-host sendiri."
+  },
+  "App": {
+    "addAccount": "Tambah akun",
+    "emptyTitle": "Belum ada akun",
+    "emptyBody": "Tambahkan akun provider untuk memantau kuota, kredit, dan jendela reset dari satu papan.",
+    "loadFailed": "Gagal memuat akun",
+    "networkError": "Kesalahan jaringan",
+    "updateFailed": "Pembaruan gagal",
+    "createFailed": "Pembuatan gagal",
+    "deleteFailed": "Penghapusan gagal"
+  },
+  "LocaleSwitcher": {
+    "label": "Bahasa",
+    "en": "EN",
+    "id": "ID"
+  },
+  "Loading": {
+    "board": "Memuat papan Anda",
+    "accounts": "Memuat akun",
+    "accountsEllipsis": "Memuat akun…",
+    "usage": "Memuat penggunaan"
+  },
+  "Providers": {
+    "codex": {
+      "hint": "OAuth · refresh otomatis"
+    },
+    "opencode-go": {
+      "hint": "Cookie sesi · workspace otomatis"
+    },
+    "tavily": {
+      "hint": "API key · kredit bulanan"
+    },
+    "exa": {
+      "hint": "Service key · spend + anggaran key"
+    },
+    "composio": {
+      "hint": "Org API key · kuota tool-call bulanan"
+    },
+    "cursor": {
+      "hint": "Cookie sesi · plan + on-demand"
+    }
+  },
+  "Tile": {
+    "reauthRequired": "Perlu autentikasi ulang",
+    "usageUnavailable": "Penggunaan tidak tersedia",
+    "dragTitle": "Seret untuk menyusun ulang",
+    "ariaLabel": "Akun {provider} {name}. Aktifkan untuk mengedit. Gunakan handle seret untuk menyusun ulang."
+  },
+  "Meter": {
+    "percentUsed": "{percent}% terpakai",
+    "percentLeft": "{percent}% tersisa",
+    "left": "tersisa",
+    "used": "terpakai",
+    "resetsIn": "reset dalam {time}",
+    "resetting": "sedang reset",
+    "emDash": "—"
+  },
+  "Wizard": {
+    "close": "Tutup",
+    "closeWizard": "Tutup wizard",
+    "addAccount": "Tambah akun",
+    "editAccount": "Edit akun",
+    "chooseProvider": "Pilih provider",
+    "accountName": "Nama akun",
+    "sessionCookie": "Cookie sesi",
+    "workspaceId": "ID Workspace",
+    "optional": "(opsional)",
+    "apiKey": "API key",
+    "serviceKey": "Service key",
+    "keyId": "Key ID",
+    "orgApiKey": "Org API key",
+    "plan": "Plan",
+    "oauthCallbackUrl": "URL callback OAuth",
+    "back": "Kembali",
+    "delete": "Hapus",
+    "deleting": "Menghapus…",
+    "saving": "Menyimpan…",
+    "saveAccount": "Simpan akun",
+    "updateCredentials": "Perbarui kredensial",
+    "preparingOauth": "Menyiapkan OAuth…",
+    "openAuthorizeUrl": "Buka URL otorisasi",
+    "startOauth": "Mulai OAuth",
+    "codexCreateHint": "Buka URL otorisasi, masuk, lalu tempel URL callback localhost. Token akan di-refresh otomatis.",
+    "codexEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk lagi, lalu tempel URL callback localhost.",
+    "placeholders": {
+      "codexName": "personal@email.com",
+      "cursorName": "Cursor personal",
+      "tavilyName": "Tavily research",
+      "exaName": "Exa team",
+      "composioName": "Composio project",
+      "opencodeName": "home workspace",
+      "opencodeCookie": "auth=Fe26.2**… atau Fe26.2**…",
+      "workspaceId": "wrk_… — kosongkan untuk deteksi otomatis",
+      "cursorCookie": "WorkosCursorSessionToken=… atau user_…%3A%3AeyJ…",
+      "tavilyKey": "tvly-…",
+      "exaKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "exaKeyId": "UUID search key — kosongkan untuk semua key",
+      "composioKey": "oak_…",
+      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…"
+    },
+    "help": {
+      "opencodeCookie": "Ekspor cookie dengan <ext>Get cookies.txt LOCALLY</ext> saat di opencode.ai, atau tempel token mentah (mis. Fe26.2**…) / header Cookie lengkap dari DevTools → Network → permintaan opencode.ai mana pun. Auth OpenCode Go berbasis web dan dibagikan di terminal Windows serta WSL.",
+      "opencodeWorkspace": "Kosongkan untuk menemukan workspace default dari sesi Anda. Timpa hanya jika Anda butuh workspace tertentu (opencode.ai/workspace/wrk_…/go).",
+      "cursorCookie": "Ekspor cookie dengan <ext>Get cookies.txt LOCALLY</ext> saat login di cursor.com, atau salin <code>WorkosCursorSessionToken</code> dari DevTools → Application → Cookies. Usagi mem-poll endpoint dashboard tidak resmi <code>/api/usage-summary</code> (plan %, Auto + Composer, API, on-demand). Sesi kedaluwarsa — tempel cookie baru saat autentikasi gagal.",
+      "tavilyKey": "Dari app.tavily.com. Penggunaan di-poll via GET /usage (Bearer). Endpoint itu mengizinkan 10 permintaan per 10 menit, jadi Usagi merefresh Tavily paling sering setiap 2 menit (dan mundur 10 menit jika terkena rate-limit).",
+      "exaKey": "Dari dashboard.exa.ai → Team Management / service API key. Usagi mem-poll spend 3d / 7d / 30d via admin-api.exa.ai. Atur anggaran spend pada search key di Exa untuk menampilkan bar anggaran key tersisa ($Y / $Z). Saldo wallet tim tidak diekspos API. Search key biasa hanya mengonfirmasi auth (tanpa meter spend).",
+      "exaKeyId": "Batasi meter ke satu search key. Kosongkan untuk menggabungkan semua key di tim.",
+      "composioKey": "Dari dashboard → Organization Settings → Organization Access Tokens (`oak_…`). Usagi mem-poll tool call / pro tool call bulanan via POST /api/v3.1/org/usage/summary. Consumer key (`ck_…`) hanya untuk Connect MCP dan tidak berfungsi di sini.",
+      "composioPlan": "API langganan Composio hanya auth cookie, jadi Usagi tidak bisa membaca plan dari org key. Pilih plan Anda agar kuota akurat, atau biarkan Auto (kuota Free; naik jika penggunaan bulan berjalan melebihi tier lebih rendah)."
+    },
+    "composioPlans": {
+      "auto": "Auto (kuota Totally Free)",
+      "free": "Totally Free · 20k / 1k",
+      "cheap": "Ridiculously Cheap · 200k / 5k",
+      "serious": "Serious Business · 2M / 50k",
+      "enterprise": "Enterprise · tanpa hard cap"
+    },
+    "errors": {
+      "nameRequired": "Nama akun wajib diisi.",
+      "opencodeCookieRequired": "Tempel cookie sesi opencode.ai.",
+      "cursorCookieRequired": "Tempel cookie WorkosCursorSessionToken.",
+      "tavilyKeyRequired": "Tempel API key Tavily Anda.",
+      "exaKeyRequired": "Tempel Exa Team Management service key Anda.",
+      "composioKeyRequired": "Tempel org API key Composio Anda (oak_…).",
+      "oauthCallbackRequired": "Tempel URL callback OAuth setelah masuk.",
+      "oauthStartFailed": "Gagal memulai OAuth Codex",
+      "saveFailed": "Gagal menyimpan",
+      "deleteFailed": "Gagal menghapus"
+    },
+    "confirmDelete": "Hapus “{name}”? Tindakan ini tidak dapat dibatalkan.",
+    "thisAccount": "akun ini"
+  }
+}

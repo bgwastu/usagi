@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { formatResetCountdown, meterFillClass } from "@/lib/format";
 import { clampPercent, remainingPercent } from "@/lib/rate-limit-window";
 import type { UsageMeter } from "@/lib/types";
@@ -17,6 +18,7 @@ type MeterTrackProps = {
   usedPct: number;
   remainingPct: number;
   label: string;
+  usedLabel: string;
   entranceKey?: string;
 };
 
@@ -27,6 +29,7 @@ function MeterTrack({
   usedPct,
   remainingPct,
   label,
+  usedLabel,
   entranceKey,
 }: MeterTrackProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -48,8 +51,6 @@ function MeterTrack({
   function hideTip() {
     setTip(null);
   }
-
-  const usedLabel = `${Math.round(usedPct)}% used`;
 
   return (
     <>
@@ -99,11 +100,24 @@ function MeterTrack({
   );
 }
 
+function formatCountdownLabel(
+  resetsAt: number | null | undefined,
+  emDash: string,
+  resetting: string,
+): string {
+  const raw = formatResetCountdown(resetsAt);
+  if (raw === "—") return emDash;
+  if (raw === "resetting") return resetting;
+  return raw;
+}
+
 export function MeterBar({
   meter,
   compact = false,
   entranceKey,
 }: MeterBarProps) {
+  const t = useTranslations("Meter");
+
   if (meter.kind === "credits" || meter.kind === "balance") {
     const hasLimit = meter.limit != null && meter.limit > 0;
     const usedPct =
@@ -123,16 +137,21 @@ export function MeterBar({
           ? `$${meter.remaining.toLocaleString(undefined, { maximumFractionDigits: 2 })} / $${meter.limit!.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
           : compact
             ? `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()}`
-            : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()} left`
+            : `${meter.remaining.toLocaleString()} / ${meter.limit!.toLocaleString()} ${t("left")}`
         : meter.used != null
           ? meter.unit === "USD"
             ? `$${meter.used.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
-            : `${meter.used.toLocaleString()} used`
+            : `${meter.used.toLocaleString()} ${t("used")}`
           : meter.remaining != null
-            ? `${[meter.remaining.toLocaleString(), meter.unit, "left"].filter(Boolean).join(" ")}`
+            ? `${[meter.remaining.toLocaleString(), meter.unit, t("left")].filter(Boolean).join(" ")}`
             : remainingPct != null
-              ? `${Math.round(remainingPct)}% left`
-              : "—";
+              ? t("percentLeft", { percent: Math.round(remainingPct) })
+              : t("emDash");
+
+    const usedLabel =
+      usedPct != null
+        ? t("percentUsed", { percent: Math.round(usedPct) })
+        : t("emDash");
 
     return (
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -149,12 +168,19 @@ export function MeterBar({
             usedPct={usedPct}
             remainingPct={remainingPct}
             label={meter.label}
+            usedLabel={usedLabel}
             entranceKey={entranceKey}
           />
         ) : null}
         {!compact && hasLimit && meter.resetsAt != null ? (
           <p className="m-0 text-xs text-ink-2">
-            resets in {formatResetCountdown(meter.resetsAt)}
+            {t("resetsIn", {
+              time: formatCountdownLabel(
+                meter.resetsAt,
+                t("emDash"),
+                t("resetting"),
+              ),
+            })}
           </p>
         ) : null}
       </div>
@@ -168,6 +194,7 @@ export function MeterBar({
   // API / providers store used%; UI shows remaining.
   const used = clampPercent(meter.usedPercent);
   const remaining = remainingPercent(used);
+  const usedLabel = t("percentUsed", { percent: Math.round(used) });
 
   return (
     <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
@@ -176,18 +203,25 @@ export function MeterBar({
           {meter.label}
         </span>
         <span className="font-outlier text-sm tabular-nums text-ink">
-          {Math.round(remaining)}% left
+          {t("percentLeft", { percent: Math.round(remaining) })}
         </span>
       </div>
       <MeterTrack
         usedPct={used}
         remainingPct={remaining}
         label={meter.label}
+        usedLabel={usedLabel}
         entranceKey={entranceKey}
       />
       {!compact ? (
         <p className="m-0 text-xs text-ink-2">
-          resets in {formatResetCountdown(meter.resetsAt)}
+          {t("resetsIn", {
+            time: formatCountdownLabel(
+              meter.resetsAt,
+              t("emDash"),
+              t("resetting"),
+            ),
+          })}
         </p>
       ) : null}
     </div>

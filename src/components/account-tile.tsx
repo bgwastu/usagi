@@ -7,6 +7,7 @@ import {
   type PointerEvent,
   type Ref,
 } from "react";
+import { useTranslations } from "next-intl";
 import { MeterBar } from "@/components/meter-bar";
 import { ProviderIcon } from "@/components/provider-icons";
 import { BOARD_DRAG_HANDLE_CLASS } from "@/lib/board-layout";
@@ -26,11 +27,12 @@ const tileClassName =
   "box-border flex h-full w-full min-h-0 min-w-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-out hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
 
 function DragHandle() {
+  const t = useTranslations("Tile");
   return (
     <span
       className={`${BOARD_DRAG_HANDLE_CLASS} -mr-1.5 -mt-1.5 grid size-9 shrink-0 touch-none place-items-center rounded-md text-muted transition-colors duration-220 ease-out hover:bg-paper-3 hover:text-ink`}
       aria-hidden
-      title="Drag to rearrange"
+      title={t("dragTitle")}
     >
       <svg
         width="14"
@@ -56,6 +58,8 @@ export function AccountTile({
   onOpen,
   measureRef,
 }: AccountTileProps) {
+  const t = useTranslations("Tile");
+  const tLoading = useTranslations("Loading");
   const { account, usage } = card;
   const meta = PROVIDER_META[account.provider];
   const meters = usage?.meters ?? [];
@@ -110,7 +114,10 @@ export function AccountTile({
         if (event.target !== event.currentTarget) return;
         setEntrance(false);
       }}
-      aria-label={`${meta.displayName} account ${account.name}. Activate to edit. Use the drag handle to rearrange.`}
+      aria-label={t("ariaLabel", {
+        provider: meta.displayName,
+        name: account.name,
+      })}
     >
       {/* shrink-0 so the board can measure intrinsic height (h-full parent must not clip it). */}
       <div ref={measureRef} className="flex w-full shrink-0 flex-col gap-3">
@@ -137,14 +144,14 @@ export function AccountTile({
         </div>
 
         {account.authStatus === "reauth_required" ? (
-          <p className="m-0 text-sm text-danger">Re-auth required</p>
+          <p className="m-0 text-sm text-danger">{t("reauthRequired")}</p>
         ) : null}
 
         {usage == null ? (
           <div
             className="flex min-h-0 min-w-0 flex-col gap-2.5"
             aria-busy="true"
-            aria-label="Loading usage"
+            aria-label={tLoading("usage")}
           >
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between gap-3">
@@ -181,7 +188,7 @@ export function AccountTile({
           </div>
         ) : usage.status === "error" || usage.status === "unavailable" ? (
           <p className="m-0 text-sm text-danger">
-            {usage.error ?? "Usage unavailable"}
+            {usage.error ?? t("usageUnavailable")}
           </p>
         ) : (
           <div className="flex min-h-0 min-w-0 flex-col gap-2">

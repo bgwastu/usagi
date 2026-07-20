@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { ProviderIcon } from "@/components/provider-icons";
+import { COOKIES_TXT_EXTENSION_URL } from "@/lib/cookie-extension";
 import type { ComposioPlanId, ProviderId } from "@/lib/types";
 import { PROVIDER_META } from "@/lib/types";
 
@@ -38,6 +40,28 @@ const secondaryBtnClass =
 const primaryBtnClass =
   "cursor-pointer rounded-md border border-accent bg-accent px-4 py-2.5 font-display font-semibold text-accent-ink transition-[transform,filter] duration-120 ease-out hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50";
 
+const authorizeLinkClass = `${secondaryBtnClass} inline-flex self-start no-underline`;
+
+const extensionLinkClass =
+  "font-medium text-ink underline decoration-rule underline-offset-2 transition-colors hover:decoration-accent";
+
+function CookieExtensionLink({ children }: { children: React.ReactNode }) {
+  return (
+    <a
+      href={COOKIES_TXT_EXTENSION_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={extensionLinkClass}
+    >
+      {children}
+    </a>
+  );
+}
+
+function InlineCode({ children }: { children: React.ReactNode }) {
+  return <code className="text-ink">{children}</code>;
+}
+
 function WizardPanel({
   mode,
   initial,
@@ -45,6 +69,8 @@ function WizardPanel({
   onSubmit,
   onDelete,
 }: Omit<AccountWizardProps, "open">) {
+  const t = useTranslations("Wizard");
+  const tProviders = useTranslations("Providers");
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<Step>(
@@ -90,7 +116,7 @@ function WizardPanel({
     };
   }, [onClose]);
 
-  async function startCodexOauth(options?: { open?: boolean }) {
+  async function startCodexOauth() {
     setOauthRequesting(true);
     setError(null);
     try {
@@ -101,18 +127,14 @@ function WizardPanel({
       };
       if (!res.ok || !json.authorizeUrl) {
         setAuthorizeUrl(null);
-        setError(json.error ?? "Failed to start Codex OAuth");
+        setError(json.error ?? t("errors.oauthStartFailed"));
         return null;
       }
       setAuthorizeUrl(json.authorizeUrl);
-      if (options?.open) {
-        void navigator.clipboard?.writeText(json.authorizeUrl);
-        window.open(json.authorizeUrl, "_blank", "noopener,noreferrer");
-      }
       return json.authorizeUrl;
     } catch {
       setAuthorizeUrl(null);
-      setError("Failed to start Codex OAuth");
+      setError(t("errors.oauthStartFailed"));
       return null;
     } finally {
       setOauthRequesting(false);
@@ -137,24 +159,22 @@ function WizardPanel({
         if (controller.signal.aborted) return;
         if (!res.ok || !json.authorizeUrl) {
           setAuthorizeUrl(null);
-          setError(json.error ?? "Failed to start Codex OAuth");
+          setError(json.error ?? t("errors.oauthStartFailed"));
           return;
         }
         setAuthorizeUrl(json.authorizeUrl);
-        void navigator.clipboard?.writeText(json.authorizeUrl);
-        window.open(json.authorizeUrl, "_blank", "noopener,noreferrer");
       } catch (err) {
         if (controller.signal.aborted) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
         setAuthorizeUrl(null);
-        setError("Failed to start Codex OAuth");
+        setError(t("errors.oauthStartFailed"));
       }
     })();
 
     return () => {
       controller.abort();
     };
-  }, [step, provider]);
+  }, [step, provider, t]);
 
   function selectProvider(next: ProviderId) {
     setProvider(next);
@@ -163,36 +183,53 @@ function WizardPanel({
     setAuthorizeUrl(null);
   }
 
+  function namePlaceholder(id: ProviderId): string {
+    switch (id) {
+      case "codex":
+        return t("placeholders.codexName");
+      case "cursor":
+        return t("placeholders.cursorName");
+      case "tavily":
+        return t("placeholders.tavilyName");
+      case "exa":
+        return t("placeholders.exaName");
+      case "composio":
+        return t("placeholders.composioName");
+      default:
+        return t("placeholders.opencodeName");
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Account name is required.");
+      setError(t("errors.nameRequired"));
       return;
     }
 
     if (provider === "opencode-go" && !cookie.trim()) {
-      setError("Paste the opencode.ai session cookie.");
+      setError(t("errors.opencodeCookieRequired"));
       return;
     }
 
     if (provider === "cursor" && !cookie.trim()) {
-      setError("Paste the WorkosCursorSessionToken cookie.");
+      setError(t("errors.cursorCookieRequired"));
       return;
     }
 
     if (provider === "tavily" && !apiKey.trim()) {
-      setError("Paste your Tavily API key.");
+      setError(t("errors.tavilyKeyRequired"));
       return;
     }
 
     if (provider === "exa" && !apiKey.trim()) {
-      setError("Paste your Exa Team Management service key.");
+      setError(t("errors.exaKeyRequired"));
       return;
     }
 
     if (provider === "composio" && !apiKey.trim()) {
-      setError("Paste your Composio org API key (oak_…).");
+      setError(t("errors.composioKeyRequired"));
       return;
     }
 
@@ -201,7 +238,7 @@ function WizardPanel({
       mode === "create" &&
       !oauthCallbackUrl.trim()
     ) {
-      setError("Paste the OAuth callback URL after signing in.");
+      setError(t("errors.oauthCallbackRequired"));
       return;
     }
 
@@ -262,7 +299,7 @@ function WizardPanel({
         oauthCallbackUrl: oauthCallbackUrl.trim() || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      setError(err instanceof Error ? err.message : t("errors.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -273,7 +310,7 @@ function WizardPanel({
       <button
         type="button"
         className="absolute inset-0 cursor-pointer border-0 bg-scrim motion-safe:animate-[fade-in_220ms_var(--ease-out)_both]"
-        aria-label="Close wizard"
+        aria-label={t("closeWizard")}
         onClick={onClose}
       />
       <div
@@ -287,19 +324,19 @@ function WizardPanel({
         <header className="mb-8 flex items-start justify-between gap-4">
           <div>
             <p className="mb-1 text-xs tracking-[0.08em] text-muted uppercase">
-              {mode === "create" ? "Add account" : "Edit account"}
+              {mode === "create" ? t("addAccount") : t("editAccount")}
             </p>
             <h2
               id={titleId}
               className="m-0 font-display text-2xl font-semibold tracking-[-0.03em]"
             >
               {step === "provider"
-                ? "Choose a provider"
+                ? t("chooseProvider")
                 : PROVIDER_META[provider].displayName}
             </h2>
           </div>
           <button type="button" className={secondaryBtnClass} onClick={onClose}>
-            Close
+            {t("close")}
           </button>
         </header>
 
@@ -319,7 +356,7 @@ function WizardPanel({
                   {PROVIDER_META[id].displayName}
                 </span>
                 <span className="text-sm text-ink-2">
-                  {PROVIDER_META[id].credentialHint}
+                  {tProviders(`${id}.hint` as `${ProviderId}.hint`)}
                 </span>
               </button>
             ))}
@@ -327,24 +364,12 @@ function WizardPanel({
         ) : (
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <label className="flex flex-col gap-1 text-sm text-ink-2">
-              <span>Account name</span>
+              <span>{t("accountName")}</span>
               <input
                 className={fieldClass}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={
-                  provider === "codex"
-                    ? "personal@email.com"
-                    : provider === "cursor"
-                      ? "Cursor personal"
-                      : provider === "tavily"
-                        ? "Tavily research"
-                        : provider === "exa"
-                          ? "Exa team"
-                          : provider === "composio"
-                            ? "Composio project"
-                            : "home workspace"
-                }
+                placeholder={namePlaceholder(provider)}
                 autoComplete="off"
               />
             </label>
@@ -352,38 +377,36 @@ function WizardPanel({
             {provider === "opencode-go" ? (
               <>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
-                  <span>Session cookie</span>
+                  <span>{t("sessionCookie")}</span>
                   <textarea
                     className={fieldClass}
                     value={cookie}
                     onChange={(e) => setCookie(e.target.value)}
-                    placeholder="auth=Fe26.2**… or Fe26.2**…"
+                    placeholder={t("placeholders.opencodeCookie")}
                     rows={4}
                   />
                   <span className="text-xs leading-relaxed text-muted">
-                    Paste either the raw token value (e.g. Fe26.2**…) or the full
-                    cookie header (e.g. auth=Fe26.2**…). Find it in your
-                    browser&apos;s DevTools → Network → any opencode.ai request →
-                    Cookie header. OpenCode Go auth is web-based and shared
-                    across Windows and WSL terminals.
+                    {t.rich("help.opencodeCookie", {
+                      ext: (chunks) => (
+                        <CookieExtensionLink>{chunks}</CookieExtensionLink>
+                      ),
+                    })}
                   </span>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
                   <span>
-                    Workspace ID{" "}
-                    <span className="text-muted">(optional)</span>
+                    {t("workspaceId")}{" "}
+                    <span className="text-muted">{t("optional")}</span>
                   </span>
                   <input
                     className={fieldClass}
                     value={workspaceId}
                     onChange={(e) => setWorkspaceId(e.target.value)}
-                    placeholder="wrk_… — leave blank to auto-detect"
+                    placeholder={t("placeholders.workspaceId")}
                     autoComplete="off"
                   />
                   <span className="text-xs leading-relaxed text-muted">
-                    Leave blank to discover the default workspace from your
-                    session. Override only if you need a specific workspace
-                    (opencode.ai/workspace/wrk_…/go).
+                    {t("help.opencodeWorkspace")}
                   </span>
                 </label>
               </>
@@ -391,42 +414,38 @@ function WizardPanel({
 
             {provider === "cursor" ? (
               <label className="flex flex-col gap-1 text-sm text-ink-2">
-                <span>Session cookie</span>
+                <span>{t("sessionCookie")}</span>
                 <textarea
                   className={fieldClass}
                   value={cookie}
                   onChange={(e) => setCookie(e.target.value)}
-                  placeholder="WorkosCursorSessionToken=… or user_…%3A%3AeyJ…"
+                  placeholder={t("placeholders.cursorCookie")}
                   rows={4}
                 />
                 <span className="text-xs leading-relaxed text-muted">
-                  From cursor.com while logged in: DevTools → Application →
-                  Cookies → `https://cursor.com` → copy{" "}
-                  <code className="text-ink">WorkosCursorSessionToken</code>.
-                  Usagi polls the unofficial dashboard{" "}
-                  <code className="text-ink">/api/usage-summary</code> endpoint
-                  (plan %, Auto + Composer, API, on-demand). Sessions expire —
-                  paste a fresh cookie when auth fails.
+                  {t.rich("help.cursorCookie", {
+                    ext: (chunks) => (
+                      <CookieExtensionLink>{chunks}</CookieExtensionLink>
+                    ),
+                    code: (chunks) => <InlineCode>{chunks}</InlineCode>,
+                  })}
                 </span>
               </label>
             ) : null}
 
             {provider === "tavily" ? (
               <label className="flex flex-col gap-1 text-sm text-ink-2">
-                <span>API key</span>
+                <span>{t("apiKey")}</span>
                 <input
                   className={fieldClass}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="tvly-…"
+                  placeholder={t("placeholders.tavilyKey")}
                   autoComplete="off"
                   type="password"
                 />
                 <span className="text-xs leading-relaxed text-muted">
-                  From app.tavily.com. Usage is polled via GET /usage (Bearer).
-                  That endpoint allows 10 requests per 10 minutes, so Usagi
-                  refreshes Tavily at most every 2 minutes (and backs off for
-                  10 minutes if rate-limited).
+                  {t("help.tavilyKey")}
                 </span>
               </label>
             ) : null}
@@ -434,38 +453,33 @@ function WizardPanel({
             {provider === "exa" ? (
               <>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
-                  <span>Service key</span>
+                  <span>{t("serviceKey")}</span>
                   <input
                     className={fieldClass}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    placeholder={t("placeholders.exaKey")}
                     autoComplete="off"
                     type="password"
                   />
                   <span className="text-xs leading-relaxed text-muted">
-                    From dashboard.exa.ai → Team Management / service API key.
-                    Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. Set a
-                    spending budget on the search key in Exa to show a Key budget
-                    remaining bar ($Y / $Z). Team wallet balance is not exposed by
-                    the API. A regular search key only confirms auth (no spend
-                    meters).
+                    {t("help.exaKey")}
                   </span>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
                   <span>
-                    Key ID <span className="text-muted">(optional)</span>
+                    {t("keyId")}{" "}
+                    <span className="text-muted">{t("optional")}</span>
                   </span>
                   <input
                     className={fieldClass}
                     value={keyId}
                     onChange={(e) => setKeyId(e.target.value)}
-                    placeholder="Search key UUID — leave blank for all keys"
+                    placeholder={t("placeholders.exaKeyId")}
                     autoComplete="off"
                   />
                   <span className="text-xs leading-relaxed text-muted">
-                    Scope meters to one search key. Leave blank to aggregate all
-                    keys on the team.
+                    {t("help.exaKeyId")}
                   </span>
                 </label>
               </>
@@ -474,25 +488,23 @@ function WizardPanel({
             {provider === "composio" ? (
               <>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
-                  <span>Org API key</span>
+                  <span>{t("orgApiKey")}</span>
                   <input
                     className={fieldClass}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="oak_…"
+                    placeholder={t("placeholders.composioKey")}
                     autoComplete="off"
                     type="password"
                   />
                   <span className="text-xs leading-relaxed text-muted">
-                    From dashboard → Organization Settings → Organization Access
-                    Tokens (`oak_…`). Usagi polls monthly tool calls / pro tool
-                    calls via POST /api/v3.1/org/usage/summary. Consumer keys
-                    (`ck_…`) only work for Connect MCP and will not work here.
+                    {t("help.composioKey")}
                   </span>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
                   <span>
-                    Plan <span className="text-muted">(optional)</span>
+                    {t("plan")}{" "}
+                    <span className="text-muted">{t("optional")}</span>
                   </span>
                   <select
                     className={fieldClass}
@@ -503,21 +515,16 @@ function WizardPanel({
                       )
                     }
                   >
-                    <option value="">Auto (Totally Free quotas)</option>
-                    <option value="free">Totally Free · 20k / 1k</option>
-                    <option value="cheap">
-                      Ridiculously Cheap · 200k / 5k
+                    <option value="">{t("composioPlans.auto")}</option>
+                    <option value="free">{t("composioPlans.free")}</option>
+                    <option value="cheap">{t("composioPlans.cheap")}</option>
+                    <option value="serious">{t("composioPlans.serious")}</option>
+                    <option value="enterprise">
+                      {t("composioPlans.enterprise")}
                     </option>
-                    <option value="serious">
-                      Serious Business · 2M / 50k
-                    </option>
-                    <option value="enterprise">Enterprise · no hard cap</option>
                   </select>
                   <span className="text-xs leading-relaxed text-muted">
-                    Composio&apos;s subscription API is cookie-auth only, so
-                    Usagi cannot read your plan from an org key. Pick your plan
-                    for accurate quota bars, or leave Auto (Free quotas; escalates
-                    if month-to-date usage exceeds a lower tier).
+                    {t("help.composioPlan")}
                   </span>
                 </label>
               </>
@@ -528,40 +535,40 @@ function WizardPanel({
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-rule bg-paper-2 p-4">
                   <p className="m-0 text-sm text-ink-2">
                     {mode === "edit"
-                      ? "Session expired or needs refresh — sign in again, then paste the localhost callback URL."
-                      : "Open the authorize URL, sign in, then paste the localhost callback URL. Tokens refresh automatically."}
+                      ? t("codexEditHint")
+                      : t("codexCreateHint")}
                   </p>
-                  <button
-                    type="button"
-                    className={`${secondaryBtnClass} self-start`}
-                    disabled={oauthPreparing}
-                    onClick={() => {
-                      if (authorizeUrl) {
-                        void navigator.clipboard?.writeText(authorizeUrl);
-                        window.open(
-                          authorizeUrl,
-                          "_blank",
-                          "noopener,noreferrer",
-                        );
-                        return;
-                      }
-                      void startCodexOauth({ open: true });
-                    }}
-                  >
-                    {oauthPreparing
-                      ? "Preparing OAuth…"
-                      : authorizeUrl
-                        ? "Open authorize URL"
-                        : "Start OAuth"}
-                  </button>
+                  {authorizeUrl ? (
+                    <a
+                      href={authorizeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={authorizeLinkClass}
+                    >
+                      {t("openAuthorizeUrl")}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`${secondaryBtnClass} self-start`}
+                      disabled={oauthPreparing}
+                      onClick={() => {
+                        void startCodexOauth();
+                      }}
+                    >
+                      {oauthPreparing
+                        ? t("preparingOauth")
+                        : t("startOauth")}
+                    </button>
+                  )}
                 </div>
                 <label className="flex flex-col gap-1 text-sm text-ink-2">
-                  <span>OAuth callback URL</span>
+                  <span>{t("oauthCallbackUrl")}</span>
                   <textarea
                     className={fieldClass}
                     value={oauthCallbackUrl}
                     onChange={(e) => setOauthCallbackUrl(e.target.value)}
-                    placeholder="http://localhost:1455/auth/callback?code=…&state=…"
+                    placeholder={t("placeholders.oauthCallback")}
                     rows={3}
                   />
                 </label>
@@ -577,7 +584,7 @@ function WizardPanel({
                   className={secondaryBtnClass}
                   onClick={() => setStep("provider")}
                 >
-                  Back
+                  {t("back")}
                 </button>
               ) : onDelete ? (
                 <button
@@ -587,7 +594,9 @@ function WizardPanel({
                   onClick={() => {
                     if (
                       !window.confirm(
-                        `Delete “${name.trim() || "this account"}”? This cannot be undone.`,
+                        t("confirmDelete", {
+                          name: name.trim() || t("thisAccount"),
+                        }),
                       )
                     ) {
                       return;
@@ -597,13 +606,15 @@ function WizardPanel({
                     void Promise.resolve(onDelete())
                       .catch((err) => {
                         setError(
-                          err instanceof Error ? err.message : "Delete failed",
+                          err instanceof Error
+                            ? err.message
+                            : t("errors.deleteFailed"),
                         );
                       })
                       .finally(() => setDeleting(false));
                   }}
                 >
-                  {deleting ? "Deleting…" : "Delete"}
+                  {deleting ? t("deleting") : t("delete")}
                 </button>
               ) : (
                 <span />
@@ -614,10 +625,10 @@ function WizardPanel({
                 disabled={busy || deleting}
               >
                 {busy
-                  ? "Saving…"
+                  ? t("saving")
                   : mode === "create"
-                    ? "Save account"
-                    : "Update credentials"}
+                    ? t("saveAccount")
+                    : t("updateCredentials")}
               </button>
             </div>
           </form>

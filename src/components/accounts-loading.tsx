@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   BOARD_COLS,
   BOARD_ROW_HEIGHT,
@@ -36,6 +37,7 @@ function breakpointForWidth(width: number): BoardBreakpoint {
 }
 
 export function AccountsLoading() {
+  const t = useTranslations("Loading");
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -76,7 +78,7 @@ export function AccountsLoading() {
           <span className="absolute inset-0 rounded-full bg-accent motion-safe:animate-[ping_1.4s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40" />
         </span>
         <p className="m-0 font-display text-sm font-medium tracking-[-0.01em] text-ink-2">
-          Loading your board
+          {t("board")}
         </p>
       </div>
       <section
@@ -85,9 +87,9 @@ export function AccountsLoading() {
         style={{ height: width > 0 ? height : BOARD_ROW_HEIGHT * 2 }}
         aria-busy="true"
         aria-live="polite"
-        aria-label="Loading accounts"
+        aria-label={t("accounts")}
       >
-        <p className="sr-only">Loading accounts…</p>
+        <p className="sr-only">{t("accountsEllipsis")}</p>
         {width > 0
           ? layout.map((item, index) => {
               const box = itemPixelBox(item, cols, width);

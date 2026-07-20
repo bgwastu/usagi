@@ -1,0 +1,137 @@
+{
+  "Meta": {
+    "title": "Usagi",
+    "description": "Self-hosted provider usage board."
+  },
+  "App": {
+    "addAccount": "Add account",
+    "emptyTitle": "No accounts yet",
+    "emptyBody": "Add a provider account to watch quotas, credits, and reset windows from one board.",
+    "loadFailed": "Failed to load accounts",
+    "networkError": "Network error",
+    "updateFailed": "Update failed",
+    "createFailed": "Create failed",
+    "deleteFailed": "Delete failed"
+  },
+  "LocaleSwitcher": {
+    "label": "Language",
+    "en": "EN",
+    "id": "ID"
+  },
+  "Loading": {
+    "board": "Loading your board",
+    "accounts": "Loading accounts",
+    "accountsEllipsis": "Loading accounts…",
+    "usage": "Loading usage"
+  },
+  "Providers": {
+    "codex": {
+      "hint": "OAuth · auto-refresh"
+    },
+    "opencode-go": {
+      "hint": "Session cookie · auto workspace"
+    },
+    "tavily": {
+      "hint": "API key · monthly credits"
+    },
+    "exa": {
+      "hint": "Service key · spend + key budget"
+    },
+    "composio": {
+      "hint": "Org API key · monthly tool-call quota"
+    },
+    "cursor": {
+      "hint": "Session cookie · plan + on-demand"
+    }
+  },
+  "Tile": {
+    "reauthRequired": "Re-auth required",
+    "usageUnavailable": "Usage unavailable",
+    "dragTitle": "Drag to rearrange",
+    "ariaLabel": "{provider} account {name}. Activate to edit. Use the drag handle to rearrange."
+  },
+  "Meter": {
+    "percentUsed": "{percent}% used",
+    "percentLeft": "{percent}% left",
+    "left": "left",
+    "used": "used",
+    "resetsIn": "resets in {time}",
+    "resetting": "resetting",
+    "emDash": "—"
+  },
+  "Wizard": {
+    "close": "Close",
+    "closeWizard": "Close wizard",
+    "addAccount": "Add account",
+    "editAccount": "Edit account",
+    "chooseProvider": "Choose a provider",
+    "accountName": "Account name",
+    "sessionCookie": "Session cookie",
+    "workspaceId": "Workspace ID",
+    "optional": "(optional)",
+    "apiKey": "API key",
+    "serviceKey": "Service key",
+    "keyId": "Key ID",
+    "orgApiKey": "Org API key",
+    "plan": "Plan",
+    "oauthCallbackUrl": "OAuth callback URL",
+    "back": "Back",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "saving": "Saving…",
+    "saveAccount": "Save account",
+    "updateCredentials": "Update credentials",
+    "preparingOauth": "Preparing OAuth…",
+    "openAuthorizeUrl": "Open authorize URL",
+    "startOauth": "Start OAuth",
+    "codexCreateHint": "Open the authorize URL, sign in, then paste the localhost callback URL. Tokens refresh automatically.",
+    "codexEditHint": "Session expired or needs refresh — sign in again, then paste the localhost callback URL.",
+    "placeholders": {
+      "codexName": "personal@email.com",
+      "cursorName": "Cursor personal",
+      "tavilyName": "Tavily research",
+      "exaName": "Exa team",
+      "composioName": "Composio project",
+      "opencodeName": "home workspace",
+      "opencodeCookie": "auth=Fe26.2**… or Fe26.2**…",
+      "workspaceId": "wrk_… — leave blank to auto-detect",
+      "cursorCookie": "WorkosCursorSessionToken=… or user_…%3A%3AeyJ…",
+      "tavilyKey": "tvly-…",
+      "exaKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "exaKeyId": "Search key UUID — leave blank for all keys",
+      "composioKey": "oak_…",
+      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…"
+    },
+    "help": {
+      "opencodeCookie": "Export cookies with <ext>Get cookies.txt LOCALLY</ext> while on opencode.ai, or paste the raw token (e.g. Fe26.2**…) / full Cookie header from DevTools → Network → any opencode.ai request. OpenCode Go auth is web-based and shared across Windows and WSL terminals.",
+      "opencodeWorkspace": "Leave blank to discover the default workspace from your session. Override only if you need a specific workspace (opencode.ai/workspace/wrk_…/go).",
+      "cursorCookie": "Export cookies with <ext>Get cookies.txt LOCALLY</ext> while logged in at cursor.com, or copy <code>WorkosCursorSessionToken</code> from DevTools → Application → Cookies. Usagi polls the unofficial dashboard <code>/api/usage-summary</code> endpoint (plan %, Auto + Composer, API, on-demand). Sessions expire — paste a fresh cookie when auth fails.",
+      "tavilyKey": "From app.tavily.com. Usage is polled via GET /usage (Bearer). That endpoint allows 10 requests per 10 minutes, so Usagi refreshes Tavily at most every 2 minutes (and backs off for 10 minutes if rate-limited).",
+      "exaKey": "From dashboard.exa.ai → Team Management / service API key. Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. Set a spending budget on the search key in Exa to show a Key budget remaining bar ($Y / $Z). Team wallet balance is not exposed by the API. A regular search key only confirms auth (no spend meters).",
+      "exaKeyId": "Scope meters to one search key. Leave blank to aggregate all keys on the team.",
+      "composioKey": "From dashboard → Organization Settings → Organization Access Tokens (`oak_…`). Usagi polls monthly tool calls / pro tool calls via POST /api/v3.1/org/usage/summary. Consumer keys (`ck_…`) only work for Connect MCP and will not work here.",
+      "composioPlan": "Composio's subscription API is cookie-auth only, so Usagi cannot read your plan from an org key. Pick your plan for accurate quota bars, or leave Auto (Free quotas; escalates if month-to-date usage exceeds a lower tier)."
+    },
+    "composioPlans": {
+      "auto": "Auto (Totally Free quotas)",
+      "free": "Totally Free · 20k / 1k",
+      "cheap": "Ridiculously Cheap · 200k / 5k",
+      "serious": "Serious Business · 2M / 50k",
+      "enterprise": "Enterprise · no hard cap"
+    },
+    "errors": {
+      "nameRequired": "Account name is required.",
+      "opencodeCookieRequired": "Paste the opencode.ai session cookie.",
+      "cursorCookieRequired": "Paste the WorkosCursorSessionToken cookie.",
+      "tavilyKeyRequired": "Paste your Tavily API key.",
+      "exaKeyRequired": "Paste your Exa Team Management service key.",
+      "composioKeyRequired": "Paste your Composio org API key (oak_…).",
+      "oauthCallbackRequired": "Paste the OAuth callback URL after signing in.",
+      "oauthStartFailed": "Failed to start Codex OAuth",
+      "saveFailed": "Save failed",
+      "deleteFailed": "Delete failed"
+    },
+    "confirmDelete": "Delete “{name}”? This cannot be undone.",
+    "thisAccount": "this account"
+  }
+}
