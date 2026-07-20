@@ -4,11 +4,21 @@ import type { Account, AccountUsage } from "@/lib/types";
 const OPENCODE_BASE = "https://opencode.ai";
 const OPENCODE_SERVER_URL = "https://opencode.ai/_server";
 const API_TIMEOUT_MS = 15_000;
+const UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 // Server-function hash for the workspaces endpoint — stable identifier used by
 // the opencode.ai SST/TanStack router server-fn protocol (same as Orca).
 const WORKSPACES_SERVER_ID =
   "def39973159c7f0483d8793a822b8dbb10d067e12c65455fcb4608459ba0234f";
+
+// Fallback for lite.subscription.get — refreshed dynamically from public assets
+// when possible. Authenticated /workspace/{id}/go HTML currently hangs upstream.
+const FALLBACK_SUBSCRIPTION_SERVER_ID =
+  "c7389bd0e731f80f49593e5ee53835475f4e28594dd6bd83eb229bab753498cd";
+
+let cachedSubscriptionServerId: { id: string; fetchedAt: number } | null = null;
+const SUBSCRIPTION_ID_TTL_MS = 60 * 60 * 1000;
 
 function normalizeCookieInput(raw: string): string {
   const trimmed = raw.trim();
@@ -147,6 +157,16 @@ function parseSubscriptionFromPageText(text: string): {
   };
 }
 
+function timeoutMessage(err: unknown, step: string): string {
+  if (
+    err instanceof Error &&
+    (err.name === "TimeoutError" || /timed out/i.test(err.message))
+  ) {
+    return `opencode.ai ${step} timed out`;
+  }
+  return err instanceof Error ? err.message : "Unknown error";
+}
+
 async function discoverWorkspaceIds(cookieHeader: string): Promise<string[]> {
   const instanceId = `server-fn:${randomUUID()}`;
   const workspacesUrl = `${OPENCODE_SERVER_URL}?id=${WORKSPACES_SERVER_ID}`;
@@ -159,6 +179,7 @@ async function discoverWorkspaceIds(cookieHeader: string): Promise<string[]> {
       Accept: "text/javascript, application/json;q=0.9, */*;q=0.8",
       Origin: OPENCODE_BASE,
       Referer: OPENCODE_BASE,
+      "User-Agent": UA,
     },
     signal: AbortSignal.timeout(API_TIMEOUT_MS),
   });
@@ -168,6 +189,119 @@ async function discoverWorkspaceIds(cookieHeader: string): Promise<string[]> {
   }
 
   return parseWorkspaceIds(await workspacesRes.text());
+}
+
+function extractSubscriptionHashFromBundle(text: string): string | null {
+  const varToHash = new Map<string, string>();
+  const refPattern =
+    /(\w+)\s*=\s*createServerReference\(["']([0-9a-f]{64})["']/g;
+  let match: RegExpExecArray | null;
+  while ((match = refPattern.exec(text)) !== null) {
+    varToHash.set(match[1], match[2]);
+  }
+  if (varToHash.size === 0) return null;
+
+  for (const [varName, hash] of varToHash) {
+    const usagePattern = new RegExp(
+      `(?:query|action)\\(\\s*${varName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*,\\s*["']lite\\.subscription\\.get["']`,
+    );
+    if (usagePattern.test(text)) return hash;
+  }
+  return null;
+}
+
+async function resolveSubscriptionServerId(): Promise<string> {
+  const now = Date.now();
+  if (
+    cachedSubscriptionServerId &&
+    now - cachedSubscriptionServerId.fetchedAt < SUBSCRIPTION_ID_TTL_MS
+  ) {
+    return cachedSubscriptionServerId.id;
+  }
+
+  try {
+    const homeRes = await fetch(OPENCODE_BASE, {
+      headers: {
+        Accept: "text/html",
+        "User-Agent": UA,
+      },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+    if (!homeRes.ok) throw new Error(`Home fetch failed (${homeRes.status})`);
+    const homeHtml = await homeRes.text();
+    const entryMatch = homeHtml.match(
+      /\/_build\/assets\/(entry-client-[^"']+\.js)/,
+    );
+    if (!entryMatch) throw new Error("entry-client bundle not found");
+
+    const entryRes = await fetch(`${OPENCODE_BASE}${entryMatch[0]}`, {
+      headers: { Accept: "*/*", "User-Agent": UA },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+    if (!entryRes.ok) throw new Error(`entry-client fetch failed (${entryRes.status})`);
+    const entryText = await entryRes.text();
+
+    const goRouteIdx = entryText.indexOf("workspace/[id]/go/index.tsx");
+    if (goRouteIdx < 0) throw new Error("Go workspace route not found in entry");
+    const window = entryText.slice(goRouteIdx, goRouteIdx + 500);
+    const chunkMatch = window.match(/\["\.\/(index-[A-Za-z0-9_-]+\.js)"\]|\.\/(index-[A-Za-z0-9_-]+\.js)/);
+    const chunkName = chunkMatch?.[1] ?? chunkMatch?.[2];
+    if (!chunkName) throw new Error("Go chunk name not found");
+
+    const chunkRes = await fetch(`${OPENCODE_BASE}/_build/assets/${chunkName}`, {
+      headers: { Accept: "*/*", "User-Agent": UA },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+    if (!chunkRes.ok) throw new Error(`Go chunk fetch failed (${chunkRes.status})`);
+    const hash = extractSubscriptionHashFromBundle(await chunkRes.text());
+    if (!hash) throw new Error("lite.subscription.get hash not found");
+
+    cachedSubscriptionServerId = { id: hash, fetchedAt: now };
+    return hash;
+  } catch {
+    cachedSubscriptionServerId = {
+      id: FALLBACK_SUBSCRIPTION_SERVER_ID,
+      fetchedAt: now,
+    };
+    return FALLBACK_SUBSCRIPTION_SERVER_ID;
+  }
+}
+
+function buildSubscriptionArgs(workspaceId: string): string {
+  return JSON.stringify({
+    t: { t: 9, i: 0, l: 1, a: [{ t: 1, s: workspaceId }], o: 0 },
+    f: 31,
+    m: [],
+  });
+}
+
+async function fetchSubscriptionUsageText(
+  cookieHeader: string,
+  workspaceId: string,
+  subscriptionServerId: string,
+): Promise<string> {
+  const args = buildSubscriptionArgs(workspaceId);
+  const url = `${OPENCODE_SERVER_URL}?id=${subscriptionServerId}&args=${encodeURIComponent(args)}`;
+  const instanceId = `server-fn:${randomUUID()}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Cookie: cookieHeader,
+      "X-Server-Id": subscriptionServerId,
+      "X-Server-Instance": instanceId,
+      Accept: "text/javascript, application/json;q=0.9, */*;q=0.8",
+      Origin: OPENCODE_BASE,
+      Referer: `${OPENCODE_BASE}/workspace/${workspaceId}`,
+      "User-Agent": UA,
+    },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Subscription fetch failed (${res.status})`);
+  }
+
+  return res.text();
 }
 
 function usageFromParsed(
@@ -261,7 +395,7 @@ export async function fetchOpenCodeGoUsage(
         meters: [],
         fetchedAt: Date.now(),
         status: "error",
-        error: err instanceof Error ? err.message : "Workspace discovery failed",
+        error: timeoutMessage(err, "workspace discovery"),
       };
     }
   }
@@ -277,45 +411,47 @@ export async function fetchOpenCodeGoUsage(
     };
   }
 
+  let subscriptionServerId: string;
+  try {
+    subscriptionServerId = await resolveSubscriptionServerId();
+  } catch (err) {
+    return {
+      accountId: account.id,
+      provider: "opencode-go",
+      meters: [],
+      fetchedAt: Date.now(),
+      status: "error",
+      error: timeoutMessage(err, "subscription hash discovery"),
+    };
+  }
+
   let lastError = "Could not parse usage data from any available workspace";
   let sawNoSubscription = false;
   let accountLabel: string | undefined;
 
   for (const workspaceId of ids) {
     try {
-      const pageRes = await fetch(
-        `${OPENCODE_BASE}/workspace/${workspaceId}/go`,
-        {
-          headers: {
-            Cookie: cookieHeader,
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            Origin: OPENCODE_BASE,
-            Referer: OPENCODE_BASE,
-          },
-          signal: AbortSignal.timeout(API_TIMEOUT_MS),
-        },
+      const text = await fetchSubscriptionUsageText(
+        cookieHeader,
+        workspaceId,
+        subscriptionServerId,
       );
+      accountLabel = workspaceId;
 
-      if (!pageRes.ok) {
-        lastError = `OpenCode Go page failed (${pageRes.status})`;
-        continue;
-      }
-
-      const pageText = await pageRes.text();
-      const emailMatch = pageText.match(
-        /\$R\[\d+\],"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"\)/,
+      const emailMatch = text.match(
+        /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/,
       );
-      accountLabel = emailMatch?.[1] ?? workspaceId;
+      if (emailMatch?.[1]) accountLabel = emailMatch[1];
 
-      const parsed = parseSubscriptionFromPageText(pageText);
+      const parsed = parseSubscriptionFromPageText(text);
       if (parsed) {
         return usageFromParsed(account.id, accountLabel, parsed);
       }
 
       const noSubscription =
-        pageText.includes("Subscribe to Go") ||
-        /subscription\s*:\s*null/.test(pageText);
+        text.includes("Subscribe to Go") ||
+        /subscription\s*:\s*null/.test(text) ||
+        (!text.includes("rollingUsage") && /\bnull\b/.test(text));
       if (noSubscription) {
         sawNoSubscription = true;
         lastError = "No active OpenCode Go subscription on this workspace";
@@ -324,7 +460,7 @@ export async function fetchOpenCodeGoUsage(
 
       lastError = "Could not parse Go usage from opencode.ai";
     } catch (err) {
-      lastError = err instanceof Error ? err.message : "Unknown error";
+      lastError = timeoutMessage(err, "subscription fetch");
     }
   }
 
