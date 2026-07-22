@@ -212,7 +212,19 @@ export function AccountsBoard({
             </div>
           ))}
         </ResponsiveGridLayout>
-      ) : null}
+      ) : (
+        // Avoid a blank board while RGL waits for container width.
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {cards.map((card, index) => (
+            <AccountTile
+              key={card.account.id}
+              card={card}
+              index={index}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

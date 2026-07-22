@@ -30,6 +30,10 @@ type GlobalUsageCache = typeof globalThis & {
   __usagiUsageCache?: Map<string, CacheEntry>;
   __usagiCredentialCooldown?: Map<string, number>;
   __usagiUsageCacheHydrated?: boolean;
+  __usagiUsageInflight?: Map<
+    string,
+    Promise<{ account: Account; usage: AccountUsage }>
+  >;
 };
 
 const globalStore = globalThis as GlobalUsageCache;
@@ -43,6 +47,12 @@ globalStore.__usagiUsageCache = usageCache;
 const credentialCooldown =
   globalStore.__usagiCredentialCooldown ?? new Map<string, number>();
 globalStore.__usagiCredentialCooldown = credentialCooldown;
+
+/** Coalesce overlapping live fetches for the same account (5s UI poll). */
+const usageInflight =
+  globalStore.__usagiUsageInflight ??
+  new Map<string, Promise<{ account: Account; usage: AccountUsage }>>();
+globalStore.__usagiUsageInflight = usageInflight;
 
 function hydrateUsageCacheFromDisk() {
   if (globalStore.__usagiUsageCacheHydrated) return;
@@ -158,6 +168,29 @@ export async function refreshAccountUsages(
   return results;
 }
 
+function isAuthExpiredUsage(usage: AccountUsage): boolean {
+  return (
+    usage.status === "error" &&
+    typeof usage.error === "string" &&
+    /re-authenticate|session expired/i.test(usage.error)
+  );
+}
+
+function preserveLastOkMeters(
+  usage: AccountUsage,
+  cached: CacheEntry | undefined,
+): AccountUsage {
+  if (usage.status === "ok" && usage.meters.length > 0) return usage;
+  if (isAuthExpiredUsage(usage)) return usage;
+  if (cached?.usage.status === "ok" && cached.usage.meters.length > 0) {
+    return {
+      ...cached.usage,
+      fetchedAt: cached.usage.fetchedAt,
+    };
+  }
+  return usage;
+}
+
 export async function fetchUsageForAccount(
   account: Account,
   options?: { force?: boolean },
@@ -184,67 +217,74 @@ export async function fetchUsageForAccount(
     }
   }
 
-  let working = account;
+  const inflightKey = `${account.id}:${options?.force ? "force" : "soft"}`;
+  const existing = usageInflight.get(inflightKey);
+  if (existing) return existing;
 
-  if (working.provider === "codex") {
-    const refreshed = await refreshCodexCredentials(working);
-    if (refreshed.changed) {
-      working = refreshed.account;
-      await saveAccount(working);
+  const promise = (async (): Promise<{ account: Account; usage: AccountUsage }> => {
+    let working = account;
+
+    if (working.provider === "codex") {
+      const refreshed = await refreshCodexCredentials(working);
+      if (refreshed.changed) {
+        working = refreshed.account;
+        await saveAccount(working);
+      }
     }
-  }
 
-  if (working.provider === "antigravity") {
-    const refreshed = await refreshAntigravityCredentials(working);
-    if (refreshed.changed) {
-      working = refreshed.account;
-      await saveAccount(working);
+    if (working.provider === "antigravity") {
+      const refreshed = await refreshAntigravityCredentials(working);
+      if (refreshed.changed) {
+        working = refreshed.account;
+        await saveAccount(working);
+      }
     }
-  }
 
-  const hasFreshMeters =
-    cached?.usage.status === "ok" && cached.usage.meters.length > 0;
+    const hasFreshMeters =
+      cached?.usage.status === "ok" && cached.usage.meters.length > 0;
 
-  let usage: AccountUsage;
-  try {
-    usage = await fetchProviderUsage(working, {
-      // Cold / error tiles: one Exa window. Warm tiles: full 3d/7d/30d.
-      exaDetail: hasFreshMeters ? "full" : "fast",
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown provider error";
-    usage = {
-      accountId: working.id,
-      provider: working.provider,
-      meters: [],
-      fetchedAt: Date.now(),
-      status: "error",
-      error: message,
-    };
-  }
-
-  let entryNextFetchAt = now + minMs;
-
-  if (isRateLimitedUsage(usage)) {
-    entryNextFetchAt = now + rateLimitBackoffMs;
-    credentialCooldown.set(credentialCooldownKey(working), entryNextFetchAt);
-
-    // Keep last successful meters instead of blanking the tile.
-    if (cached?.usage.status === "ok" && cached.usage.meters.length > 0) {
+    let usage: AccountUsage;
+    try {
+      usage = await fetchProviderUsage(working, {
+        // Cold / error tiles: one Exa window. Warm tiles: full 3d/7d/30d.
+        exaDetail: hasFreshMeters ? "full" : "fast",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown provider error";
       usage = {
-        ...cached.usage,
-        fetchedAt: cached.usage.fetchedAt,
+        accountId: working.id,
+        provider: working.provider,
+        meters: [],
+        fetchedAt: Date.now(),
+        status: "error",
+        error: message,
       };
     }
-  }
 
-  writeCacheEntry(working.id, {
-    usage,
-    fetchedAt: now,
-    nextFetchAt: entryNextFetchAt,
+    let entryNextFetchAt = Date.now() + minMs;
+
+    if (isRateLimitedUsage(usage)) {
+      entryNextFetchAt = Date.now() + rateLimitBackoffMs;
+      credentialCooldown.set(credentialCooldownKey(working), entryNextFetchAt);
+    }
+
+    // Keep last-good meters on transient errors / empty responses so tiles
+    // don't blank while a slow provider (esp. Antigravity) is recovering.
+    usage = preserveLastOkMeters(usage, cached);
+
+    writeCacheEntry(working.id, {
+      usage,
+      fetchedAt: Date.now(),
+      nextFetchAt: entryNextFetchAt,
+    });
+    return { account: working, usage };
+  })().finally(() => {
+    usageInflight.delete(inflightKey);
   });
-  return { account: working, usage };
+
+  usageInflight.set(inflightKey, promise);
+  return promise;
 }
 
 async function fetchProviderUsage(

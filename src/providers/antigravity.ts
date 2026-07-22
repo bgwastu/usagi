@@ -115,20 +115,63 @@ async function fetchFirstOk(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Response> {
-  let lastError: unknown = null;
-  const signal = AbortSignal.timeout(timeoutMs);
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, { ...init, signal });
-      if (response.ok) return response;
-      lastError = new Error(`${response.status} ${await response.text()}`);
-    } catch (error) {
-      lastError = error;
-    }
+  if (endpoints.length === 0) {
+    throw new Error("Antigravity API unavailable");
   }
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Antigravity API unavailable");
+
+  const signal = AbortSignal.timeout(timeoutMs);
+  const errors: unknown[] = [];
+
+  return await new Promise<Response>((resolve, reject) => {
+    let pending = endpoints.length;
+    let settled = false;
+
+    for (const endpoint of endpoints) {
+      void fetch(endpoint, { ...init, signal })
+        .then(async (response) => {
+          if (settled) return;
+          if (response.ok) {
+            settled = true;
+            resolve(response);
+            return;
+          }
+          // Auth failures are terminal — don't wait on sibling bases.
+          if (response.status === 401 || response.status === 403) {
+            settled = true;
+            reject(
+              new Error(
+                `Antigravity API forbidden (${response.status})`,
+              ),
+            );
+            return;
+          }
+          errors.push(
+            new Error(`${response.status} ${await response.text()}`),
+          );
+          pending -= 1;
+          if (pending === 0) {
+            const last = errors[errors.length - 1];
+            reject(
+              last instanceof Error
+                ? last
+                : new Error("Antigravity API unavailable"),
+            );
+          }
+        })
+        .catch((error) => {
+          if (settled) return;
+          errors.push(error);
+          pending -= 1;
+          if (pending === 0) {
+            reject(
+              error instanceof Error
+                ? error
+                : new Error("Antigravity API unavailable"),
+            );
+          }
+        });
+    }
+  });
 }
 
 function parseResetTime(value: unknown): number | null {
@@ -528,32 +571,30 @@ async function ensureProjectId(
   accessToken: string,
   existing?: string,
 ): Promise<{ projectId: string; subscriptionInfo: unknown; tierId: string }> {
-  try {
-    const loadRes = await fetchFirstOk(
-      BASE_URLS.map((base) => `${base}/v1internal:loadCodeAssist`),
-      {
-        method: "POST",
-        headers: authHeaders(accessToken, "oauth"),
-        body: JSON.stringify({ metadata: { ideType: "ANTIGRAVITY" } }),
-      },
-      10_000,
-    );
-    const data = asRecord(await loadRes.json());
+  // Skip loadCodeAssist when we already have a project — biggest cold-path win.
+  if (existing?.trim()) {
     return {
-      projectId: projectIdFromLoad(data) || existing?.trim() || "",
-      subscriptionInfo: data,
-      tierId: tierIdFromLoad(data),
+      projectId: existing.trim(),
+      subscriptionInfo: null,
+      tierId: "legacy-tier",
     };
-  } catch (error) {
-    if (existing?.trim()) {
-      return {
-        projectId: existing.trim(),
-        subscriptionInfo: null,
-        tierId: "legacy-tier",
-      };
-    }
-    throw error;
   }
+
+  const loadRes = await fetchFirstOk(
+    BASE_URLS.map((base) => `${base}/v1internal:loadCodeAssist`),
+    {
+      method: "POST",
+      headers: authHeaders(accessToken, "oauth"),
+      body: JSON.stringify({ metadata: { ideType: "ANTIGRAVITY" } }),
+    },
+    8_000,
+  );
+  const data = asRecord(await loadRes.json());
+  return {
+    projectId: projectIdFromLoad(data),
+    subscriptionInfo: data,
+    tierId: tierIdFromLoad(data),
+  };
 }
 
 function metersFromQuotaSummary(data: unknown): UsageMeter[] {
@@ -668,43 +709,26 @@ async function fetchAllModelMeters(
   accessToken: string,
   projectId?: string,
 ): Promise<UsageMeter[]> {
-  let response: Response | null = null;
-  let lastError: unknown = null;
+  // Start live quota alongside the models catalog race (don't wait for catalog first).
+  const liveQuotaPromise = projectId
+    ? fetchUserQuotaBuckets(accessToken, projectId)
+    : Promise.resolve(new Map<string, JsonRecord>());
 
-  for (const base of BASE_URLS) {
-    try {
-      response = await fetch(`${base}/v1internal:fetchAvailableModels`, {
-        method: "POST",
-        headers: authHeaders(accessToken, "api"),
-        body: JSON.stringify(projectId ? { project: projectId } : {}),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (response.ok || response.status === 401 || response.status === 403) {
-        break;
-      }
-    } catch (error) {
-      lastError = error;
-      response = null;
-    }
-  }
+  const response = await fetchFirstOk(
+    BASE_URLS.map((base) => `${base}/v1internal:fetchAvailableModels`),
+    {
+      method: "POST",
+      headers: authHeaders(accessToken, "api"),
+      body: JSON.stringify(projectId ? { project: projectId } : {}),
+    },
+    8_000,
+  );
 
-  if (!response) {
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("Antigravity models API unavailable");
-  }
-  if (response.status === 401 || response.status === 403) {
-    throw new Error(`Antigravity models forbidden (${response.status})`);
-  }
-  if (!response.ok) {
-    throw new Error(`Antigravity models failed (${response.status})`);
-  }
+  const [liveQuota, data] = await Promise.all([
+    liveQuotaPromise,
+    response.json().then((json) => asRecord(json)),
+  ]);
 
-  const liveQuota = projectId
-    ? await fetchUserQuotaBuckets(accessToken, projectId)
-    : new Map<string, JsonRecord>();
-
-  const data = asRecord(await response.json());
   const models = asRecord(data.models);
   const byId = new Map<string, UsageMeter>();
 
@@ -735,7 +759,6 @@ async function fetchAllModelMeters(
     if (meter) byId.set(modelId, meter);
   }
 
-  // Include live quota buckets not in the catalog yet.
   for (const [modelId, bucket] of liveQuota) {
     if (byId.has(modelId)) continue;
     const rawFraction = asNumber(bucket.remainingFraction, -1);
@@ -772,19 +795,17 @@ export async function fetchAntigravityUsage(
       mapTierToPlan(account.credentials.tierId ?? "") ||
       "Free";
 
-    const detailMeters = await fetchAllModelMeters(
-      accessToken,
-      projectId || undefined,
-    );
-    let meters = aggregateFamilyMeters(detailMeters);
+    // Models + optional summary in parallel. Free tier usually 403s summary fast.
+    const [detailMeters, summaryMeters] = await Promise.all([
+      fetchAllModelMeters(accessToken, projectId || undefined),
+      projectId
+        ? fetchQuotaSummary(accessToken, projectId)
+        : Promise.resolve([] as UsageMeter[]),
+    ]);
 
-    // Prefer family 5h/weekly from summary when available (often 403 on Free).
-    if (projectId) {
-      const summaryMeters = await fetchQuotaSummary(accessToken, projectId);
-      if (summaryMeters.length > 0) {
-        meters = summaryMeters;
-      }
-    }
+    const familyMeters = aggregateFamilyMeters(detailMeters);
+    const meters =
+      summaryMeters.length > 0 ? summaryMeters : familyMeters;
 
     return {
       accountId: account.id,
