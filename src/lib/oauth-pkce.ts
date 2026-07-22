@@ -61,3 +61,28 @@ export function parseOAuthCallbackUrl(raw: string): {
   }
   return { code, state };
 }
+
+/** Non-PKCE OAuth (e.g. Antigravity Google desktop client). */
+const pendingStates = new Map<string, { createdAt: number }>();
+
+function pruneStates() {
+  const now = Date.now();
+  for (const [state, value] of pendingStates) {
+    if (now - value.createdAt > TTL_MS) pendingStates.delete(state);
+  }
+}
+
+export function createOAuthState(): { state: string } {
+  pruneStates();
+  const state = base64url(randomBytes(16));
+  pendingStates.set(state, { createdAt: Date.now() });
+  return { state };
+}
+
+export function takeOAuthState(state: string): boolean {
+  pruneStates();
+  const entry = pendingStates.get(state);
+  if (!entry) return false;
+  pendingStates.delete(state);
+  return true;
+}

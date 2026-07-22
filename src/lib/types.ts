@@ -1,6 +1,7 @@
 export type ProviderId =
   | "opencode-go"
   | "codex"
+  | "antigravity"
   | "cursor"
   | "tavily"
   | "exa"
@@ -35,6 +36,16 @@ export type CodexCredentials = {
   idToken?: string;
   accountId?: string;
   email?: string;
+  expiresAt?: number;
+  lastRefresh?: number;
+};
+
+export type AntigravityCredentials = {
+  accessToken: string;
+  refreshToken: string;
+  email?: string;
+  projectId?: string;
+  tierId?: string;
   expiresAt?: number;
   lastRefresh?: number;
 };
@@ -87,6 +98,10 @@ export type Account =
       credentials: CodexCredentials;
     })
   | (AccountBase & {
+      provider: "antigravity";
+      credentials: AntigravityCredentials;
+    })
+  | (AccountBase & {
       provider: "tavily";
       credentials: TavilyCredentials;
     })
@@ -108,7 +123,13 @@ export type AccountUsage = {
   provider: ProviderId;
   accountLabel?: string;
   plan?: string;
+  /** Compact meters shown on the tile (e.g. family aggregates). */
   meters: UsageMeter[];
+  /**
+   * Full meter list for expand/detail UI (e.g. every Antigravity model).
+   * When set, the tile can open a detail view from the grouped meters.
+   */
+  detailMeters?: UsageMeter[];
   fetchedAt: number;
   error?: string;
   status: "ok" | "error" | "unavailable";
@@ -139,6 +160,11 @@ export const PROVIDER_META: Record<
     displayName: "Codex",
     credentialHint: "OAuth · auto-refresh",
     minRefreshMs: 5_000,
+  },
+  antigravity: {
+    displayName: "Antigravity",
+    credentialHint: "Google OAuth · auto-refresh",
+    minRefreshMs: 30_000,
   },
   "opencode-go": {
     displayName: "OpenCode Go",
@@ -172,6 +198,7 @@ export const PROVIDER_META: Record<
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   codex: "2x1",
+  antigravity: "2x1",
   "opencode-go": "2x1",
   cursor: "2x1",
   tavily: "1x1",

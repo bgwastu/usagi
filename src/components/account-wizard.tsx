@@ -99,7 +99,7 @@ function WizardPanel({
   const oauthPreparing =
     oauthRequesting ||
     (step === "credentials" &&
-      provider === "codex" &&
+      (provider === "codex" || provider === "antigravity") &&
       authorizeUrl === null &&
       error === null);
 
@@ -116,11 +116,15 @@ function WizardPanel({
     };
   }, [onClose]);
 
-  async function startCodexOauth() {
+  async function startOauth(forProvider: "codex" | "antigravity") {
     setOauthRequesting(true);
     setError(null);
     try {
-      const res = await fetch("/api/oauth/codex/start", { method: "POST" });
+      const path =
+        forProvider === "antigravity"
+          ? "/api/oauth/antigravity/start"
+          : "/api/oauth/codex/start";
+      const res = await fetch(path, { method: "POST" });
       const json = (await res.json()) as {
         authorizeUrl?: string;
         error?: string;
@@ -142,13 +146,22 @@ function WizardPanel({
   }
 
   useEffect(() => {
-    if (step !== "credentials" || provider !== "codex") return;
+    if (
+      step !== "credentials" ||
+      (provider !== "codex" && provider !== "antigravity")
+    ) {
+      return;
+    }
 
     const controller = new AbortController();
+    const path =
+      provider === "antigravity"
+        ? "/api/oauth/antigravity/start"
+        : "/api/oauth/codex/start";
 
     void (async () => {
       try {
-        const res = await fetch("/api/oauth/codex/start", {
+        const res = await fetch(path, {
           method: "POST",
           signal: controller.signal,
         });
@@ -187,6 +200,8 @@ function WizardPanel({
     switch (id) {
       case "codex":
         return t("placeholders.codexName");
+      case "antigravity":
+        return t("placeholders.antigravityName");
       case "cursor":
         return t("placeholders.cursorName");
       case "tavily":
@@ -234,7 +249,7 @@ function WizardPanel({
     }
 
     if (
-      provider === "codex" &&
+      (provider === "codex" || provider === "antigravity") &&
       mode === "create" &&
       !oauthCallbackUrl.trim()
     ) {
@@ -530,13 +545,17 @@ function WizardPanel({
               </>
             ) : null}
 
-            {provider === "codex" ? (
+            {provider === "codex" || provider === "antigravity" ? (
               <>
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-rule bg-paper-2 p-4">
                   <p className="m-0 text-sm text-ink-2">
-                    {mode === "edit"
-                      ? t("codexEditHint")
-                      : t("codexCreateHint")}
+                    {provider === "antigravity"
+                      ? mode === "edit"
+                        ? t("antigravityEditHint")
+                        : t("antigravityCreateHint")
+                      : mode === "edit"
+                        ? t("codexEditHint")
+                        : t("codexCreateHint")}
                   </p>
                   {authorizeUrl ? (
                     <a
@@ -553,7 +572,9 @@ function WizardPanel({
                       className={`${secondaryBtnClass} self-start`}
                       disabled={oauthPreparing}
                       onClick={() => {
-                        void startCodexOauth();
+                        void startOauth(
+                          provider === "antigravity" ? "antigravity" : "codex",
+                        );
                       }}
                     >
                       {oauthPreparing
@@ -568,7 +589,11 @@ function WizardPanel({
                     className={fieldClass}
                     value={oauthCallbackUrl}
                     onChange={(e) => setOauthCallbackUrl(e.target.value)}
-                    placeholder={t("placeholders.oauthCallback")}
+                    placeholder={
+                      provider === "antigravity"
+                        ? t("placeholders.antigravityOauthCallback")
+                        : t("placeholders.oauthCallback")
+                    }
                     rows={3}
                   />
                 </label>

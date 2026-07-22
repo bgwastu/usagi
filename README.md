@@ -24,6 +24,7 @@ Optional: set `ENCRYPTION_KEY` to encrypt that file at rest. If decryption fails
 ## Providers
 
 - **Codex** — OAuth (PKCE), auto-refresh · 5-hour + weekly windows
+- **Antigravity** — Google OAuth (desktop client, no PKCE), auto-refresh · Gemini / Claude & Other bars (tap a bar to expand models on the tile)
 - **OpenCode Go** — session cookie; workspace ID optional · 5-hour + weekly (+ monthly if present)
 - **Cursor** — `WorkosCursorSessionToken` cookie · plan / Auto+Composer / API / on-demand (unofficial dashboard API)
 - **Tavily** — API key · plan / key credits

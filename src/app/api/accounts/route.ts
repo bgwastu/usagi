@@ -12,8 +12,13 @@ import {
   exchangeCodexCode,
   extractCodexIdentity,
 } from "@/providers/codex";
+import { exchangeAntigravityCode } from "@/providers/antigravity";
 import { normalizeCursorCookie } from "@/providers/cursor";
-import { parseOAuthCallbackUrl, takePkceVerifier } from "@/lib/oauth-pkce";
+import {
+  parseOAuthCallbackUrl,
+  takeOAuthState,
+  takePkceVerifier,
+} from "@/lib/oauth-pkce";
 
 export const runtime = "nodejs";
 
@@ -74,6 +79,12 @@ type CreateBody =
       name?: string;
       accessToken: string;
       refreshToken: string;
+      span?: Account["span"];
+    }
+  | {
+      provider: "antigravity";
+      name?: string;
+      oauthCallbackUrl: string;
       span?: Account["span"];
     };
 
@@ -157,7 +168,34 @@ export async function POST(request: Request) {
         createdAt: now,
         updatedAt: now,
       };
-    } else if ("oauthCallbackUrl" in body && body.oauthCallbackUrl) {
+    } else if (
+      body.provider === "antigravity" &&
+      "oauthCallbackUrl" in body &&
+      body.oauthCallbackUrl
+    ) {
+      const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
+      if (!takeOAuthState(state)) {
+        return NextResponse.json(
+          { error: "OAuth state expired — start login again" },
+          { status: 400 },
+        );
+      }
+      const credentials = await exchangeAntigravityCode({ code });
+      account = {
+        id: randomUUID(),
+        provider: "antigravity",
+        name: body.name?.trim() || credentials.email || "Antigravity",
+        span: body.span ?? DEFAULT_SPAN.antigravity,
+        credentials,
+        authStatus: "ok",
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else if (
+      body.provider === "codex" &&
+      "oauthCallbackUrl" in body &&
+      body.oauthCallbackUrl
+    ) {
       const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
       const verifier = takePkceVerifier(state);
       if (!verifier) {
@@ -180,7 +218,12 @@ export async function POST(request: Request) {
         createdAt: now,
         updatedAt: now,
       };
-    } else if ("accessToken" in body && body.accessToken && body.refreshToken) {
+    } else if (
+      body.provider === "codex" &&
+      "accessToken" in body &&
+      body.accessToken &&
+      body.refreshToken
+    ) {
       const identity = extractCodexIdentity(body.accessToken);
       account = {
         id: randomUUID(),

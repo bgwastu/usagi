@@ -8,6 +8,10 @@ import {
   fetchCodexUsage,
   refreshCodexCredentials,
 } from "../src/providers/codex.ts";
+import {
+  fetchAntigravityUsage,
+  refreshAntigravityCredentials,
+} from "../src/providers/antigravity.ts";
 import type { Account } from "../src/lib/types.ts";
 
 const db = JSON.parse(readFileSync("./data/data.json", "utf8")) as {
@@ -34,6 +38,22 @@ for (const account of db.accounts) {
       }
     }
 
+    if (working.provider === "antigravity") {
+      const refreshed = await refreshAntigravityCredentials(working);
+      working = refreshed.account;
+      console.log(
+        "antigravity refresh changed=",
+        refreshed.changed,
+        "auth=",
+        working.authStatus,
+      );
+      if (refreshed.changed) {
+        const idx = db.accounts.findIndex((a) => a.id === working.id);
+        if (idx >= 0) db.accounts[idx] = working;
+        writeFileSync("./data/data.json", JSON.stringify(db, null, 2));
+      }
+    }
+
     const usage =
       working.provider === "tavily"
         ? await fetchTavilyUsage(working)
@@ -45,7 +65,9 @@ for (const account of db.accounts) {
               ? await fetchCursorUsage(working)
               : working.provider === "opencode-go"
                 ? await fetchOpenCodeGoUsage(working)
-                : await fetchCodexUsage(working);
+                : working.provider === "antigravity"
+                  ? await fetchAntigravityUsage(working)
+                  : await fetchCodexUsage(working);
 
     console.log(
       working.provider,

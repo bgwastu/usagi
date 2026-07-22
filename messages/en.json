@@ -28,6 +28,9 @@
     "codex": {
       "hint": "OAuth · auto-refresh"
     },
+    "antigravity": {
+      "hint": "Google OAuth · auto-refresh"
+    },
     "opencode-go": {
       "hint": "Session cookie · auto workspace"
     },
@@ -48,7 +51,8 @@
     "reauthRequired": "Re-auth required",
     "usageUnavailable": "Usage unavailable",
     "dragTitle": "Drag to rearrange",
-    "ariaLabel": "{provider} account {name}. Activate to edit. Use the drag handle to rearrange."
+    "ariaLabel": "{provider} account {name}. Activate to edit. Use the drag handle to rearrange.",
+    "toggleMeterGroup": "Toggle {group} models"
   },
   "Meter": {
     "percentUsed": "{percent}% used",
@@ -86,8 +90,11 @@
     "startOauth": "Start OAuth",
     "codexCreateHint": "Open the authorize URL, sign in, then paste the localhost callback URL. Tokens refresh automatically.",
     "codexEditHint": "Session expired or needs refresh — sign in again, then paste the localhost callback URL.",
+    "antigravityCreateHint": "Open the authorize URL, sign in with Google, then paste the 127.0.0.1 callback URL (the page may fail to load — copy the address bar). Tokens refresh automatically.",
+    "antigravityEditHint": "Session expired or needs refresh — sign in with Google again, then paste the 127.0.0.1 callback URL.",
     "placeholders": {
       "codexName": "personal@email.com",
+      "antigravityName": "you@gmail.com",
       "cursorName": "Cursor personal",
       "tavilyName": "Tavily research",
       "exaName": "Exa team",
@@ -100,7 +107,8 @@
       "exaKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "exaKeyId": "Search key UUID — leave blank for all keys",
       "composioKey": "oak_…",
-      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…"
+      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…",
+      "antigravityOauthCallback": "http://127.0.0.1:51121/callback?code=…&state=…"
     },
     "help": {
       "opencodeCookie": "Export cookies with <ext>Get cookies.txt LOCALLY</ext> while on opencode.ai, or paste the raw token (e.g. Fe26.2**…) / full Cookie header from DevTools → Network → any opencode.ai request. OpenCode Go auth is web-based and shared across Windows and WSL terminals.",
@@ -127,7 +135,7 @@
       "exaKeyRequired": "Paste your Exa Team Management service key.",
       "composioKeyRequired": "Paste your Composio org API key (oak_…).",
       "oauthCallbackRequired": "Paste the OAuth callback URL after signing in.",
-      "oauthStartFailed": "Failed to start Codex OAuth",
+      "oauthStartFailed": "Failed to start OAuth",
       "saveFailed": "Save failed",
       "deleteFailed": "Delete failed"
     },

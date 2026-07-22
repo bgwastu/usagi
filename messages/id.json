@@ -28,6 +28,9 @@
     "codex": {
       "hint": "OAuth · refresh otomatis"
     },
+    "antigravity": {
+      "hint": "Google OAuth · refresh otomatis"
+    },
     "opencode-go": {
       "hint": "Cookie sesi · workspace otomatis"
     },
@@ -48,7 +51,8 @@
     "reauthRequired": "Perlu autentikasi ulang",
     "usageUnavailable": "Penggunaan tidak tersedia",
     "dragTitle": "Seret untuk menyusun ulang",
-    "ariaLabel": "Akun {provider} {name}. Aktifkan untuk mengedit. Gunakan handle seret untuk menyusun ulang."
+    "ariaLabel": "Akun {provider} {name}. Aktifkan untuk mengedit. Gunakan handle seret untuk menyusun ulang.",
+    "toggleMeterGroup": "Buka/tutup model {group}"
   },
   "Meter": {
     "percentUsed": "{percent}% terpakai",
@@ -86,8 +90,11 @@
     "startOauth": "Mulai OAuth",
     "codexCreateHint": "Buka URL otorisasi, masuk, lalu tempel URL callback localhost. Token akan di-refresh otomatis.",
     "codexEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk lagi, lalu tempel URL callback localhost.",
+    "antigravityCreateHint": "Buka URL otorisasi, masuk dengan Google, lalu tempel URL callback 127.0.0.1 (halaman mungkin gagal dimuat — salin dari address bar). Token akan di-refresh otomatis.",
+    "antigravityEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk dengan Google lagi, lalu tempel URL callback 127.0.0.1.",
     "placeholders": {
       "codexName": "personal@email.com",
+      "antigravityName": "you@gmail.com",
       "cursorName": "Cursor personal",
       "tavilyName": "Tavily research",
       "exaName": "Exa team",
@@ -100,7 +107,8 @@
       "exaKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "exaKeyId": "UUID search key — kosongkan untuk semua key",
       "composioKey": "oak_…",
-      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…"
+      "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…",
+      "antigravityOauthCallback": "http://127.0.0.1:51121/callback?code=…&state=…"
     },
     "help": {
       "opencodeCookie": "Ekspor cookie dengan <ext>Get cookies.txt LOCALLY</ext> saat di opencode.ai, atau tempel token mentah (mis. Fe26.2**…) / header Cookie lengkap dari DevTools → Network → permintaan opencode.ai mana pun. Auth OpenCode Go berbasis web dan dibagikan di terminal Windows serta WSL.",
@@ -127,7 +135,7 @@
       "exaKeyRequired": "Tempel Exa Team Management service key Anda.",
       "composioKeyRequired": "Tempel org API key Composio Anda (oak_…).",
       "oauthCallbackRequired": "Tempel URL callback OAuth setelah masuk.",
-      "oauthStartFailed": "Gagal memulai OAuth Codex",
+      "oauthStartFailed": "Gagal memulai OAuth",
       "saveFailed": "Gagal menyimpan",
       "deleteFailed": "Gagal menghapus"
     },

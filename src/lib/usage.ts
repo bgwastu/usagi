@@ -5,6 +5,10 @@ import type {
   ProviderId,
 } from "@/lib/types";
 import { fetchCodexUsage, refreshCodexCredentials } from "@/providers/codex";
+import {
+  fetchAntigravityUsage,
+  refreshAntigravityCredentials,
+} from "@/providers/antigravity";
 import { fetchCursorUsage } from "@/providers/cursor";
 import { fetchOpenCodeGoUsage } from "@/providers/opencode-go";
 import { fetchTavilyUsage } from "@/providers/tavily";
@@ -68,6 +72,8 @@ function credentialCooldownKey(account: Account): string {
       return `cursor:${account.credentials.cookie}`;
     case "codex":
       return `codex:${account.credentials.refreshToken}`;
+    case "antigravity":
+      return `antigravity:${account.credentials.refreshToken}`;
     default: {
       const _exhaustive: never = account;
       return _exhaustive;
@@ -188,6 +194,14 @@ export async function fetchUsageForAccount(
     }
   }
 
+  if (working.provider === "antigravity") {
+    const refreshed = await refreshAntigravityCredentials(working);
+    if (refreshed.changed) {
+      working = refreshed.account;
+      await saveAccount(working);
+    }
+  }
+
   const hasFreshMeters =
     cached?.usage.status === "ok" && cached.usage.meters.length > 0;
 
@@ -240,6 +254,8 @@ async function fetchProviderUsage(
   switch (account.provider) {
     case "codex":
       return fetchCodexUsage(account);
+    case "antigravity":
+      return fetchAntigravityUsage(account);
     case "opencode-go":
       return fetchOpenCodeGoUsage(account);
     case "tavily":

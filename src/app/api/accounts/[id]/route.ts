@@ -7,8 +7,13 @@ import {
 import { fetchUsageForAccount, invalidateUsageCache } from "@/lib/usage";
 import type { Account } from "@/lib/types";
 import { exchangeCodexCode } from "@/providers/codex";
+import { exchangeAntigravityCode } from "@/providers/antigravity";
 import { normalizeCursorCookie } from "@/providers/cursor";
-import { parseOAuthCallbackUrl, takePkceVerifier } from "@/lib/oauth-pkce";
+import {
+  parseOAuthCallbackUrl,
+  takeOAuthState,
+  takePkceVerifier,
+} from "@/lib/oauth-pkce";
 
 export const runtime = "nodejs";
 
@@ -140,6 +145,25 @@ export async function PATCH(request: Request, { params }: Params) {
         next = {
           ...next,
           provider: "codex",
+          name: credentials.email ?? next.name,
+          credentials,
+          authStatus: "ok",
+          authError: undefined,
+        };
+      }
+    } else if (next.provider === "antigravity") {
+      if (typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) {
+        const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
+        if (!takeOAuthState(state)) {
+          return NextResponse.json(
+            { error: "OAuth state expired — start login again" },
+            { status: 400 },
+          );
+        }
+        const credentials = await exchangeAntigravityCode({ code });
+        next = {
+          ...next,
+          provider: "antigravity",
           name: credentials.email ?? next.name,
           credentials,
           authStatus: "ok",
