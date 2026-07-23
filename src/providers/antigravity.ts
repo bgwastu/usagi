@@ -611,8 +611,15 @@ function metersFromQuotaSummary(data: unknown): UsageMeter[] {
     const group = asRecord(groupValue);
     const displayName =
       String(group.displayName || "").trim() || "Models";
-    const family = slugify(displayName) || "models";
+    const familyKind = getAntigravityQuotaFamily(displayName);
+    const familyId =
+      familyKind === "gemini" ? "family_gemini" : "family_claude";
+    const familyLabel =
+      familyKind === "gemini" ? "Gemini" : "Claude & Other";
     const buckets = Array.isArray(group.buckets) ? group.buckets : [];
+
+    // One tile bar per family: worst remaining (highest used%) across 5h + weekly.
+    let worst: UsageMeter | null = null;
 
     for (const bucketValue of buckets) {
       const bucket = asRecord(bucketValue);
@@ -632,15 +639,24 @@ function metersFromQuotaSummary(data: unknown): UsageMeter[] {
       const windowLabel = isWeekly ? "Weekly" : "5-hour";
       const usedPercent = clampPercent((1 - remainingFraction) * 100);
 
-      meters.push({
-        id: `${family}_${isWeekly ? "weekly" : "session"}`,
-        label: `${displayName.replace(/\s+models?\b/i, "").trim() || displayName} · ${windowLabel}`,
+      const candidate: UsageMeter = {
+        id: familyId,
+        label: `${familyLabel} · ${windowLabel}`,
         kind: "window",
         usedPercent,
         windowSeconds: isWeekly ? 7 * 24 * 60 * 60 : 5 * 60 * 60,
         resetsAt,
-      });
+      };
+
+      if (
+        !worst ||
+        (candidate.usedPercent ?? 0) > (worst.usedPercent ?? 0)
+      ) {
+        worst = candidate;
+      }
     }
+
+    if (worst) meters.push(worst);
   }
 
   return meters;
@@ -651,14 +667,13 @@ async function fetchQuotaSummary(
   projectId: string,
 ): Promise<UsageMeter[]> {
   try {
+    // Prod host + IDE User-Agent are required; bare Authorization gets 403 on Free,
+    // and daily-* hosts return stale full Gemini fractions.
     const response = await fetch(
       "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(accessToken, "api"),
         body: JSON.stringify({ project: projectId }),
         signal: AbortSignal.timeout(10_000),
       },
@@ -680,10 +695,7 @@ async function fetchUserQuotaBuckets(
       "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(accessToken, "api"),
         body: JSON.stringify({ project: projectId }),
         signal: AbortSignal.timeout(10_000),
       },
@@ -731,13 +743,25 @@ async function fetchAllModelMeters(
 
   const models = asRecord(data.models);
   const byId = new Map<string, UsageMeter>();
+  const hasLiveGemini = [...liveQuota.keys()].some(
+    (id) => getAntigravityQuotaFamily(id) === "gemini",
+  );
 
   for (const [rawModelKey, infoValue] of Object.entries(models)) {
     const info = asRecord(infoValue);
     if (info.isInternal === true) continue;
     const modelId = rawModelKey.replace(/^models\//, "");
-    const quotaInfo = asRecord(info.quotaInfo);
     const live = liveQuota.get(modelId);
+    // Catalog remainingFraction for Gemini often stays at 1.0 after the pool is
+    // empty — only trust catalog Gemini when retrieveUserQuota has no Gemini rows.
+    if (
+      !live &&
+      hasLiveGemini &&
+      getAntigravityQuotaFamily(modelId) === "gemini"
+    ) {
+      continue;
+    }
+    const quotaInfo = asRecord(info.quotaInfo);
     const source =
       live && Object.keys(live).length > 0 ? live : quotaInfo;
     if (Object.keys(source).length === 0) continue;
@@ -795,7 +819,8 @@ export async function fetchAntigravityUsage(
       mapTierToPlan(account.credentials.tierId ?? "") ||
       "Free";
 
-    // Models + optional summary in parallel. Free tier usually 403s summary fast.
+    // Summary (family pools) is authoritative for Gemini/Claude bars; catalog
+    // remainingFraction often stays at 1.0 after the pool is exhausted.
     const [detailMeters, summaryMeters] = await Promise.all([
       fetchAllModelMeters(accessToken, projectId || undefined),
       projectId
