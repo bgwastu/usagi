@@ -53,6 +53,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [, setClock] = useState(() => Date.now());
   const pauseRefreshRef = useRef(false);
+  const refreshVersionRef = useRef(0);
   const hasCardsRef = useRef((initialCards?.length ?? 0) > 0);
 
   const editingCard = useMemo(
@@ -113,6 +114,7 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
       ) {
         return;
       }
+      const refreshVersion = refreshVersionRef.current;
       try {
         const qs = options?.force ? "?force=1" : "";
         const res = await fetch(`/api/accounts/usage${qs}`, {
@@ -123,7 +125,12 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
           error?: string;
         };
         startTransition(() => {
-          if (pauseRefreshRef.current) return;
+          if (
+            pauseRefreshRef.current ||
+            refreshVersion !== refreshVersionRef.current
+          ) {
+            return;
+          }
           if (!res.ok) {
             // Keep shell visible; surface error only if we have no cards yet.
             if (!hasCardsRef.current) {
@@ -251,11 +258,16 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
 
   async function handleDelete() {
     if (!editingCard) return;
-    const res = await fetch(`/api/accounts/${editingCard.account.id}`, {
+    const deletedId = editingCard.account.id;
+    const res = await fetch(`/api/accounts/${deletedId}`, {
       method: "DELETE",
     });
     const json = (await res.json()) as { error?: string };
     if (!res.ok) throw new Error(json.error ?? t("deleteFailed"));
+    refreshVersionRef.current += 1;
+    setCards((current) =>
+      current.filter((card) => card.account.id !== deletedId),
+    );
     closeWizard();
     await refreshShell();
   }

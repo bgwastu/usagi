@@ -14,7 +14,7 @@ import { fetchOpenCodeGoUsage } from "@/providers/opencode-go";
 import { fetchTavilyUsage } from "@/providers/tavily";
 import { fetchExaUsage } from "@/providers/exa";
 import { fetchComposioUsage } from "@/providers/composio";
-import { saveAccount } from "@/lib/db";
+import { updateAccount } from "@/lib/db";
 import { PROVIDER_META } from "@/lib/types";
 import {
   clearPersistedUsageCache,
@@ -228,7 +228,7 @@ export async function fetchUsageForAccount(
       const refreshed = await refreshCodexCredentials(working);
       if (refreshed.changed) {
         working = refreshed.account;
-        await saveAccount(working);
+        await updateAccount(working);
       }
     }
 
@@ -236,7 +236,7 @@ export async function fetchUsageForAccount(
       const refreshed = await refreshAntigravityCredentials(working);
       if (refreshed.changed) {
         working = refreshed.account;
-        await saveAccount(working);
+        await updateAccount(working);
       }
     }
 

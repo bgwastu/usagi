@@ -115,6 +115,15 @@ export async function saveAccount(account: Account): Promise<Account> {
   return account;
 }
 
+export async function updateAccount(account: Account): Promise<boolean> {
+  const db = await getDb();
+  const index = db.data.accounts.findIndex((a) => a.id === account.id);
+  if (index < 0) return false;
+  db.data.accounts[index] = account;
+  await db.write();
+  return true;
+}
+
 export async function deleteAccount(id: string): Promise<boolean> {
   const db = await getDb();
   const before = db.data.accounts.length;
