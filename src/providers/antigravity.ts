@@ -720,7 +720,7 @@ async function fetchUserQuotaBuckets(
 async function fetchAllModelMeters(
   accessToken: string,
   projectId?: string,
-): Promise<UsageMeter[]> {
+): Promise<{ meters: UsageMeter[]; liveMeterIds: Set<string> }> {
   // Start live quota alongside the models catalog race (don't wait for catalog first).
   const liveQuotaPromise = projectId
     ? fetchUserQuotaBuckets(accessToken, projectId)
@@ -743,24 +743,13 @@ async function fetchAllModelMeters(
 
   const models = asRecord(data.models);
   const byId = new Map<string, UsageMeter>();
-  const hasLiveGemini = [...liveQuota.keys()].some(
-    (id) => getAntigravityQuotaFamily(id) === "gemini",
-  );
+  const liveMeterIds = new Set<string>();
 
   for (const [rawModelKey, infoValue] of Object.entries(models)) {
     const info = asRecord(infoValue);
     if (info.isInternal === true) continue;
     const modelId = rawModelKey.replace(/^models\//, "");
     const live = liveQuota.get(modelId);
-    // Catalog remainingFraction for Gemini often stays at 1.0 after the pool is
-    // empty — only trust catalog Gemini when retrieveUserQuota has no Gemini rows.
-    if (
-      !live &&
-      hasLiveGemini &&
-      getAntigravityQuotaFamily(modelId) === "gemini"
-    ) {
-      continue;
-    }
     const quotaInfo = asRecord(info.quotaInfo);
     const source =
       live && Object.keys(live).length > 0 ? live : quotaInfo;
@@ -780,7 +769,10 @@ async function fetchAllModelMeters(
       remainingFraction: rawFraction,
       resetsAt: parseResetTime(source.resetTime),
     });
-    if (meter) byId.set(modelId, meter);
+    if (meter) {
+      byId.set(modelId, meter);
+      if (live) liveMeterIds.add(meter.id);
+    }
   }
 
   for (const [modelId, bucket] of liveQuota) {
@@ -793,14 +785,18 @@ async function fetchAllModelMeters(
       remainingFraction: rawFraction,
       resetsAt: parseResetTime(bucket.resetTime),
     });
-    if (meter) byId.set(modelId, meter);
+    if (meter) {
+      byId.set(modelId, meter);
+      liveMeterIds.add(meter.id);
+    }
   }
 
-  return [...byId.values()].sort((a, b) => {
+  const meters = [...byId.values()].sort((a, b) => {
     const usedDiff = (b.usedPercent ?? 0) - (a.usedPercent ?? 0);
     if (usedDiff !== 0) return usedDiff;
     return a.label.localeCompare(b.label);
   });
+  return { meters, liveMeterIds };
 }
 
 export async function fetchAntigravityUsage(
@@ -821,16 +817,23 @@ export async function fetchAntigravityUsage(
 
     // Summary (family pools) is authoritative for Gemini/Claude bars; catalog
     // remainingFraction often stays at 1.0 after the pool is exhausted.
-    const [detailMeters, summaryMeters] = await Promise.all([
+    const [modelQuota, summaryMeters] = await Promise.all([
       fetchAllModelMeters(accessToken, projectId || undefined),
       projectId
         ? fetchQuotaSummary(accessToken, projectId)
         : Promise.resolve([] as UsageMeter[]),
     ]);
 
-    const familyMeters = aggregateFamilyMeters(detailMeters);
-    const meters =
-      summaryMeters.length > 0 ? summaryMeters : familyMeters;
+    const summaryFamilies = new Set(summaryMeters.map((meter) => meter.id));
+    const detailMeters = modelQuota.meters.filter((meter) => {
+      const family = getAntigravityQuotaFamily(`${meter.label} ${meter.id}`);
+      const familyId = family === "gemini" ? "family_gemini" : "family_claude";
+      return (
+        !summaryFamilies.has(familyId) || modelQuota.liveMeterIds.has(meter.id)
+      );
+    });
+    const familyMeters = aggregateFamilyMeters(modelQuota.meters);
+    const meters = summaryMeters.length > 0 ? summaryMeters : familyMeters;
 
     return {
       accountId: account.id,
