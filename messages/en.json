@@ -3,6 +3,11 @@
     "title": "Usagi",
     "description": "Self-hosted provider usage board."
   },
+  "Auth": {
+    "prompt": "Enter the installation password to continue.",
+    "login": "Unlock Usagi",
+    "invalid": "Invalid password."
+  },
   "App": {
     "addAccount": "Add account",
     "emptyTitle": "No accounts yet",

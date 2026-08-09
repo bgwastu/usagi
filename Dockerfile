@@ -1,55 +1,28 @@
-# ============================================
-# Stage 1: Dependencies Installation Stage
-# ============================================
-# Bun multi-stage build based on the official Next.js with-docker example:
-# https://github.com/vercel/next.js/tree/canary/examples/with-docker
-
-FROM oven/bun:1 AS dependencies
+FROM oven/bun:1 AS build
 
 WORKDIR /app
-
-COPY package.json bun.lock* ./
-
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-  bun install --no-save --frozen-lockfile
-
-# ============================================
-# Stage 2: Build Next.js application
-# ============================================
-
-FROM oven/bun:1 AS builder
-
-WORKDIR /app
-
-COPY --from=dependencies /app/node_modules ./node_modules
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
 RUN bun run build
-
-# ============================================
-# Stage 3: Run Next.js application
-# ============================================
 
 FROM oven/bun:1 AS runner
 
 WORKDIR /app
-
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOSTNAME=0.0.0.0
 
-RUN mkdir -p public .next data && chown -R bun:bun .next data
+COPY --from=build /app/package.json /app/bun.lock ./
+COPY --from=build /app/tsconfig.json ./tsconfig.json
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist/client ./dist/client
+COPY --from=build /app/src ./src
+COPY --from=build /app/messages ./messages
 
-COPY --from=builder --chown=bun:bun /app/public ./public
-COPY --from=builder --chown=bun:bun /app/.next/standalone ./
-COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
-
+RUN mkdir -p /app/data && chown -R bun:bun /app
 USER bun
 
 EXPOSE 3000
-
-CMD ["bun", "server.js"]
+VOLUME ["/app/data"]
+CMD ["bun", "src/server/node.ts"]

@@ -201,6 +201,9 @@ export async function fetchCodexUsage(
     headers: {
       Authorization: `Bearer ${account.credentials.accessToken}`,
       Accept: "application/json",
+      Origin: "https://chatgpt.com",
+      Referer: "https://chatgpt.com/",
+      "User-Agent": "Mozilla/5.0",
       ...(account.credentials.accountId
         ? { "ChatGPT-Account-ID": account.credentials.accountId }
         : {}),
@@ -209,13 +212,18 @@ export async function fetchCodexUsage(
   });
 
   if (res.status === 401 || res.status === 403) {
+    await res.text();
+    const error =
+      res.status === 403
+        ? "Codex usage endpoint rejected the request (403). Re-authenticate and try again."
+        : "Codex session rejected (401) — re-authenticate";
     return {
       accountId: account.id,
       provider: "codex",
       meters: [],
       fetchedAt: Date.now(),
       status: "error",
-      error: "Codex session expired — re-authenticate",
+      error,
     };
   }
 

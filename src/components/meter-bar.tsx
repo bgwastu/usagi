@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { formatResetCountdown, meterFillClass } from "@/lib/format";
 import { clampPercent, remainingPercent } from "@/lib/rate-limit-window";
 import type { UsageMeter } from "@/lib/types";

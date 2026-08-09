@@ -1,19 +1,16 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { setLocaleAction } from "@/i18n/actions";
+import { useLocale, useSetLocale, useTranslations } from "@/i18n/client";
 import { locales, type Locale } from "@/i18n/config";
 
 export function LocaleSwitcher() {
   const locale = useLocale();
-  const router = useRouter();
+  const setLocale = useSetLocale();
   const t = useTranslations("LocaleSwitcher");
 
   async function switchLocale(next: Locale) {
     if (next === locale) return;
-    await setLocaleAction(next);
-    router.refresh();
+    setLocale(next);
   }
 
   return (

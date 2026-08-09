@@ -8,29 +8,15 @@ import {
   useRef,
   useState,
 } from "react";
-import dynamic from "next/dynamic";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { AccountsLoading } from "@/components/accounts-loading";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { reorderCardsByIds } from "@/lib/board-layout";
-import type { AccountCardModel, ComposioPlanId } from "@/lib/types";
+import type { AccountCardModel } from "@/lib/types";
 import type { WizardDraft } from "@/components/account-wizard";
 
-const AccountsBoard = dynamic(
-  () =>
-    import("@/components/accounts-board").then((m) => ({
-      default: m.AccountsBoard,
-    })),
-  { loading: () => <AccountsLoading />, ssr: false },
-);
-
-const AccountWizard = dynamic(
-  () =>
-    import("@/components/account-wizard").then((m) => ({
-      default: m.AccountWizard,
-    })),
-  { ssr: false },
-);
+import { AccountsBoard } from "@/components/accounts-board";
+import { AccountWizard } from "@/components/account-wizard";
 
 const REFRESH_MS = 5_000;
 
@@ -276,31 +262,11 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
     ? {
         provider: editingCard.account.provider,
         name: editingCard.account.name,
-        cookie:
-          editingCard.account.provider === "opencode-go" ||
-          editingCard.account.provider === "cursor"
-            ? editingCard.account.credentials.cookie
-            : undefined,
-        workspaceId:
-          editingCard.account.provider === "opencode-go"
-            ? editingCard.account.credentials.workspaceId
-            : undefined,
-        apiKey:
-          editingCard.account.provider === "tavily" ||
-          editingCard.account.provider === "exa" ||
-          editingCard.account.provider === "composio"
-            ? editingCard.account.credentials.apiKey
-            : undefined,
-        keyId:
-          editingCard.account.provider === "exa"
-            ? editingCard.account.credentials.keyId
-            : undefined,
-        composioPlan:
-          editingCard.account.provider === "composio"
-            ? ((editingCard.account.credentials.plan ?? "") as
-                | ComposioPlanId
-                | "")
-            : undefined,
+         cookie: undefined,
+         workspaceId: undefined,
+         apiKey: undefined,
+         keyId: undefined,
+         composioPlan: undefined,
       }
     : undefined;
 

@@ -11,15 +11,22 @@ bun install
 bun run dev
 ```
 
+The development server is Vite. The production self-hosted server is Hono on Bun/Node.
+
 Or with Docker:
 
 ```bash
 docker run --rm -p 3000:3000 -v usagi-data:/app/data ghcr.io/bgwastu/usagi:latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Accounts live in `data/data.json` (gitignored).
+Open [http://localhost:3000](http://localhost:3000). Accounts live in `data/usagi.sqlite` (gitignored).
 
-Optional: set `ENCRYPTION_KEY` to encrypt that file at rest. If decryption fails, the app exits.
+Optional environment variables:
+
+- `USAGI_PASSWORD` protects the board and API with a shared password.
+- `ENCRYPTION_KEY` encrypts provider credentials at rest in SQLite.
+
+The first self-hosted start creates `data/usagi.sqlite` and imports accounts from the legacy `data/data.json` if present.
 
 ## Providers
 
@@ -33,8 +40,8 @@ Optional: set `ENCRYPTION_KEY` to encrypt that file at rest. If decryption fails
 
 ## Notes
 
-- Runs without login — keep it on localhost or a trusted network.
+- Runs without login unless `USAGI_PASSWORD` is configured — keep an unprotected instance on localhost or a trusted network.
 - Board shell (accounts + last-known meters) loads instantly; live usage refreshes in the background via `/api/accounts/usage`.
 - UI polls usage every 5s; Tavily live-fetches at most every 2 minutes (10 req / 10 min on `/usage`).
-- Usage cache persists in `data/usage-cache.json` so cold restarts still show stale meters.
+- Usage snapshots persist in SQLite so cold restarts still show stale meters.
 - Light/dark follows system preference.

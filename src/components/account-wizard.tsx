@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { ProviderIcon } from "@/components/provider-icons";
 import { COOKIES_TXT_EXTENSION_URL } from "@/lib/cookie-extension";
 import type { ComposioPlanId, ProviderId } from "@/lib/types";
@@ -223,27 +223,27 @@ function WizardPanel({
       return;
     }
 
-    if (provider === "opencode-go" && !cookie.trim()) {
+    if (provider === "opencode-go" && mode === "create" && !cookie.trim()) {
       setError(t("errors.opencodeCookieRequired"));
       return;
     }
 
-    if (provider === "cursor" && !cookie.trim()) {
+    if (provider === "cursor" && mode === "create" && !cookie.trim()) {
       setError(t("errors.cursorCookieRequired"));
       return;
     }
 
-    if (provider === "tavily" && !apiKey.trim()) {
+    if (provider === "tavily" && mode === "create" && !apiKey.trim()) {
       setError(t("errors.tavilyKeyRequired"));
       return;
     }
 
-    if (provider === "exa" && !apiKey.trim()) {
+    if (provider === "exa" && mode === "create" && !apiKey.trim()) {
       setError(t("errors.exaKeyRequired"));
       return;
     }
 
-    if (provider === "composio" && !apiKey.trim()) {
+    if (provider === "composio" && mode === "create" && !apiKey.trim()) {
       setError(t("errors.composioKeyRequired"));
       return;
     }

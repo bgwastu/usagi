@@ -69,7 +69,6 @@ export function AccountsBoard({
 
   const baseLayouts = useMemo(
     () => layoutsFromCards(cards, heightPxById),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed intentionally
     [layoutKey, heightsKey],
   );
   const [dragLayouts, setDragLayouts] = useState<ResponsiveLayouts | null>(

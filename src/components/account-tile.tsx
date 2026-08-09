@@ -7,7 +7,7 @@ import {
   type PointerEvent,
   type Ref,
 } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { MeterBar } from "@/components/meter-bar";
 import { ProviderIcon } from "@/components/provider-icons";
 import { BOARD_DRAG_HANDLE_CLASS } from "@/lib/board-layout";

@@ -1,5 +1,5 @@
 ############################################################
-# Production-ready .dockerignore for a Next.js (Bun) app
+# Production-ready .dockerignore for a Vite/Hono (Bun) app
 ############################################################
 
 # Dependencies (installed inside Docker)
@@ -11,7 +11,7 @@ yarn-error.log*
 pnpm-debug.log*
 bun-debug.log*
 
-# Next.js / build outputs
+# Build outputs
 .next/
 out/
 dist/

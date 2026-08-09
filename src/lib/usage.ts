@@ -17,14 +17,23 @@ import { fetchComposioUsage } from "@/providers/composio";
 import { updateAccount } from "@/lib/db";
 import { PROVIDER_META } from "@/lib/types";
 import {
-  clearPersistedUsageCache,
-  readPersistedUsageCache,
-  removePersistedUsageEntry,
-  schedulePersistUsageCache,
-  type PersistedCacheEntry,
-} from "@/lib/usage-cache-store";
+  clearUsageSnapshots,
+  readUsageSnapshots,
+  removeUsageSnapshot,
+  writeUsageSnapshots,
+} from "@/lib/db";
+
+type PersistedCacheEntry = {
+  usage: AccountUsage;
+  fetchedAt: number;
+  nextFetchAt: number;
+};
 
 type CacheEntry = PersistedCacheEntry;
+
+export function publicAccount(account: Account): Account {
+  return { ...account, credentials: undefined } as unknown as Account;
+}
 
 type GlobalUsageCache = typeof globalThis & {
   __usagiUsageCache?: Map<string, CacheEntry>;
@@ -54,18 +63,18 @@ const usageInflight =
   new Map<string, Promise<{ account: Account; usage: AccountUsage }>>();
 globalStore.__usagiUsageInflight = usageInflight;
 
-function hydrateUsageCacheFromDisk() {
+async function hydrateUsageCacheFromDisk() {
   if (globalStore.__usagiUsageCacheHydrated) return;
   globalStore.__usagiUsageCacheHydrated = true;
   if (usageCache.size > 0) return;
-  for (const [id, entry] of readPersistedUsageCache()) {
+  for (const [id, entry] of await readUsageSnapshots()) {
     usageCache.set(id, entry);
   }
 }
 
-function writeCacheEntry(accountId: string, entry: CacheEntry) {
+async function writeCacheEntry(accountId: string, entry: CacheEntry) {
   usageCache.set(accountId, entry);
-  schedulePersistUsageCache(usageCache);
+  await writeUsageSnapshots(new Map([[accountId, entry]]));
 }
 
 function credentialCooldownKey(account: Account): string {
@@ -115,18 +124,17 @@ function rateLimitedPlaceholder(account: Account): AccountUsage {
 }
 
 /** Instant board shell: accounts + last-known usage (memory/disk), no live fetches. */
-export function buildAccountShell(
+export async function buildAccountShell(
   accounts: Account[],
-): AccountCardModel[] {
-  hydrateUsageCacheFromDisk();
+): Promise<AccountCardModel[]> {
+  await hydrateUsageCacheFromDisk();
   return accounts.map((account) => ({
-    account,
+    account: publicAccount(account),
     usage: usageCache.get(account.id)?.usage ?? null,
   }));
 }
 
 export function getCachedUsage(accountId: string): AccountUsage | null {
-  hydrateUsageCacheFromDisk();
   return usageCache.get(accountId)?.usage ?? null;
 }
 
@@ -153,16 +161,16 @@ export async function refreshAccountUsages(
   accounts: Account[],
   options?: { force?: boolean },
 ): Promise<AccountCardModel[]> {
-  hydrateUsageCacheFromDisk();
+  await hydrateUsageCacheFromDisk();
   const results = await Promise.all(
     accounts.map(async (account) => {
       if (!needsLiveFetch(account, options?.force)) {
         return {
-          account,
+          account: publicAccount(account),
           usage: usageCache.get(account.id)?.usage ?? null,
         };
       }
-      return fetchUsageForAccount(account, { force: options?.force });
+      return fetchUsageForAccount(account, { force: options?.force }).then((result) => ({ ...result, account: publicAccount(result.account) }));
     }),
   );
   return results;
@@ -195,7 +203,7 @@ export async function fetchUsageForAccount(
   account: Account,
   options?: { force?: boolean },
 ): Promise<{ account: Account; usage: AccountUsage }> {
-  hydrateUsageCacheFromDisk();
+  await hydrateUsageCacheFromDisk();
   const now = Date.now();
   const minMs = PROVIDER_META[account.provider].minRefreshMs;
   const rateLimitBackoffMs =
@@ -249,6 +257,22 @@ export async function fetchUsageForAccount(
         // Cold / error tiles: one Exa window. Warm tiles: full 3d/7d/30d.
         exaDetail: hasFreshMeters ? "full" : "fast",
       });
+
+      // WHAM can reject an access token before its decoded expiry. Codex CLI
+      // refreshes once on 401, then retries the usage request.
+      if (working.provider === "codex" && isAuthExpiredUsage(usage)) {
+        const refreshed = await refreshCodexCredentials({
+          ...working,
+          credentials: { ...working.credentials, expiresAt: 0 },
+        });
+        working = refreshed.account;
+        await updateAccount(working);
+        if (working.authStatus === "ok") {
+          usage = await fetchProviderUsage(working, {
+            exaDetail: hasFreshMeters ? "full" : "fast",
+          });
+        }
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown provider error";
@@ -273,7 +297,7 @@ export async function fetchUsageForAccount(
     // don't blank while a slow provider (esp. Antigravity) is recovering.
     usage = preserveLastOkMeters(usage, cached);
 
-    writeCacheEntry(working.id, {
+    await writeCacheEntry(working.id, {
       usage,
       fetchedAt: Date.now(),
       nextFetchAt: entryNextFetchAt,
@@ -314,13 +338,12 @@ async function fetchProviderUsage(
 }
 
 export function invalidateUsageCache(accountId?: string) {
-  hydrateUsageCacheFromDisk();
   if (accountId) {
     usageCache.delete(accountId);
-    removePersistedUsageEntry(accountId);
+    void removeUsageSnapshot(accountId);
   } else {
     usageCache.clear();
-    clearPersistedUsageCache();
+    void clearUsageSnapshots();
   }
 }
 

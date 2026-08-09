@@ -3,6 +3,11 @@
     "title": "Usagi",
     "description": "Papan penggunaan provider yang di-host sendiri."
   },
+  "Auth": {
+    "prompt": "Masukkan kata sandi instalasi untuk melanjutkan.",
+    "login": "Buka Usagi",
+    "invalid": "Kata sandi tidak valid."
+  },
   "App": {
     "addAccount": "Tambah akun",
     "emptyTitle": "Belum ada akun",
