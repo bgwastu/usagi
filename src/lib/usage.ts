@@ -14,6 +14,7 @@ import { fetchOpenCodeGoUsage } from "@/providers/opencode-go";
 import { fetchTavilyUsage } from "@/providers/tavily";
 import { fetchExaUsage } from "@/providers/exa";
 import { fetchComposioUsage } from "@/providers/composio";
+import { fetchCommandCodeUsage } from "@/providers/command-code";
 import { updateAccount } from "@/lib/db";
 import { PROVIDER_META } from "@/lib/types";
 import {
@@ -85,6 +86,8 @@ function credentialCooldownKey(account: Account): string {
       return `exa:${account.credentials.apiKey}:${account.credentials.keyId ?? ""}`;
     case "composio":
       return `composio:${account.credentials.apiKey}`;
+    case "command-code":
+      return `command-code:${account.credentials.apiKey}`;
     case "opencode-go":
       return `opencode-go:${account.credentials.cookie}`;
     case "cursor":
@@ -328,6 +331,8 @@ async function fetchProviderUsage(
       return fetchExaUsage(account, { detail: options?.exaDetail ?? "full" });
     case "composio":
       return fetchComposioUsage(account);
+    case "command-code":
+      return fetchCommandCodeUsage(account);
     case "cursor":
       return fetchCursorUsage(account);
     default: {

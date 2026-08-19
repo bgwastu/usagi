@@ -210,6 +210,8 @@ function WizardPanel({
         return t("placeholders.exaName");
       case "composio":
         return t("placeholders.composioName");
+      case "command-code":
+        return t("placeholders.commandCodeName");
       default:
         return t("placeholders.opencodeName");
     }
@@ -245,6 +247,11 @@ function WizardPanel({
 
     if (provider === "composio" && mode === "create" && !apiKey.trim()) {
       setError(t("errors.composioKeyRequired"));
+      return;
+    }
+
+    if (provider === "command-code" && mode === "create" && !apiKey.trim()) {
+      setError(t("errors.commandCodeKeyRequired"));
       return;
     }
 
@@ -304,6 +311,15 @@ function WizardPanel({
           name: trimmedName,
           apiKey: apiKey.trim(),
           composioPlan: composioPlan || "",
+        });
+        return;
+      }
+
+      if (provider === "command-code") {
+        await onSubmit({
+          provider,
+          name: trimmedName,
+          apiKey: apiKey.trim(),
         });
         return;
       }
@@ -543,6 +559,23 @@ function WizardPanel({
                   </span>
                 </label>
               </>
+            ) : null}
+
+            {provider === "command-code" ? (
+              <label className="flex flex-col gap-1 text-sm text-ink-2">
+                <span>{t("apiKey")}</span>
+                <input
+                  className={fieldClass}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={t("placeholders.commandCodeKey")}
+                  autoComplete="off"
+                  type="password"
+                />
+                <span className="text-xs leading-relaxed text-muted">
+                  {t("help.commandCodeKey")}
+                </span>
+              </label>
             ) : null}
 
             {provider === "codex" || provider === "antigravity" ? (

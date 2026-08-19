@@ -37,6 +37,7 @@ The first self-hosted start creates `data/usagi.sqlite` and imports accounts fro
 - **Tavily** — API key · plan / key credits
 - **Exa** — Team Management service key · spend windows (fast 30d first, then 3d/7d); key budget bar when `budgetCents` is set (optional key ID)
 - **Composio** — Org API key (`oak_…`) · monthly tool-call / pro-tool quota bars
+- **Command Code** — Studio API key (`user_…`) · plan credits + 5-hour / weekly windows
 
 ## Notes
 

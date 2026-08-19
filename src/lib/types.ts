@@ -5,7 +5,8 @@ export type ProviderId =
   | "cursor"
   | "tavily"
   | "exa"
-  | "composio";
+  | "composio"
+  | "command-code";
 
 export type MeterKind = "window" | "credits" | "balance";
 
@@ -78,6 +79,11 @@ export type CursorCredentials = {
   cookie: string;
 };
 
+export type CommandCodeCredentials = {
+  /** Studio API key (`user_…`); same key as CLI / Provider API. */
+  apiKey: string;
+};
+
 export type AccountBase = {
   id: string;
   name: string;
@@ -116,6 +122,10 @@ export type Account =
   | (AccountBase & {
       provider: "cursor";
       credentials: CursorCredentials;
+    })
+  | (AccountBase & {
+      provider: "command-code";
+      credentials: CommandCodeCredentials;
     });
 
 export type AccountUsage = {
@@ -194,6 +204,12 @@ export const PROVIDER_META: Record<
     minRefreshMs: 60_000,
     rateLimitBackoffMs: 5 * 60_000,
   },
+  "command-code": {
+    displayName: "Command Code",
+    credentialHint: "API key · plan credits + windows",
+    minRefreshMs: 30_000,
+    rateLimitBackoffMs: 5 * 60_000,
+  },
 };
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
@@ -204,4 +220,5 @@ export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   tavily: "1x1",
   exa: "1x2",
   composio: "1x2",
+  "command-code": "2x1",
 };

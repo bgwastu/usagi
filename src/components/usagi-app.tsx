@@ -213,6 +213,8 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
       } else if (draft.provider === "composio") {
         body.apiKey = draft.apiKey;
         body.plan = draft.composioPlan ?? "";
+      } else if (draft.provider === "command-code") {
+        body.apiKey = draft.apiKey;
       } else if (draft.oauthCallbackUrl) {
         body.oauthCallbackUrl = draft.oauthCallbackUrl;
       }

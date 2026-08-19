@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fetchTavilyUsage } from "../src/providers/tavily.ts";
 import { fetchExaUsage } from "../src/providers/exa.ts";
 import { fetchComposioUsage } from "../src/providers/composio.ts";
+import { fetchCommandCodeUsage } from "../src/providers/command-code.ts";
 import { fetchCursorUsage } from "../src/providers/cursor.ts";
 import { fetchOpenCodeGoUsage } from "../src/providers/opencode-go.ts";
 import {
@@ -61,13 +62,15 @@ for (const account of db.accounts) {
           ? await fetchExaUsage(working)
           : working.provider === "composio"
             ? await fetchComposioUsage(working)
-            : working.provider === "cursor"
-              ? await fetchCursorUsage(working)
-              : working.provider === "opencode-go"
-                ? await fetchOpenCodeGoUsage(working)
-                : working.provider === "antigravity"
-                  ? await fetchAntigravityUsage(working)
-                  : await fetchCodexUsage(working);
+            : working.provider === "command-code"
+              ? await fetchCommandCodeUsage(working)
+              : working.provider === "cursor"
+                ? await fetchCursorUsage(working)
+                : working.provider === "opencode-go"
+                  ? await fetchOpenCodeGoUsage(working)
+                  : working.provider === "antigravity"
+                    ? await fetchAntigravityUsage(working)
+                    : await fetchCodexUsage(working);
 
     console.log(
       working.provider,

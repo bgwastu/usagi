@@ -48,6 +48,9 @@
     "composio": {
       "hint": "Org API key · monthly tool-call quota"
     },
+    "command-code": {
+      "hint": "API key · plan credits + windows"
+    },
     "cursor": {
       "hint": "Session cookie · plan + on-demand"
     }
@@ -104,6 +107,7 @@
       "tavilyName": "Tavily research",
       "exaName": "Exa team",
       "composioName": "Composio project",
+      "commandCodeName": "Command Code",
       "opencodeName": "home workspace",
       "opencodeCookie": "auth=Fe26.2**… or Fe26.2**…",
       "workspaceId": "wrk_… — leave blank to auto-detect",
@@ -112,6 +116,7 @@
       "exaKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "exaKeyId": "Search key UUID — leave blank for all keys",
       "composioKey": "oak_…",
+      "commandCodeKey": "user_…",
       "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…",
       "antigravityOauthCallback": "http://127.0.0.1:51121/callback?code=…&state=…"
     },
@@ -123,7 +128,8 @@
       "exaKey": "From dashboard.exa.ai → Team Management / service API key. Usagi polls 3d / 7d / 30d spend via admin-api.exa.ai. Set a spending budget on the search key in Exa to show a Key budget remaining bar ($Y / $Z). Team wallet balance is not exposed by the API. A regular search key only confirms auth (no spend meters).",
       "exaKeyId": "Scope meters to one search key. Leave blank to aggregate all keys on the team.",
       "composioKey": "From dashboard → Organization Settings → Organization Access Tokens (`oak_…`). Usagi polls monthly tool calls / pro tool calls via POST /api/v3.1/org/usage/summary. Consumer keys (`ck_…`) only work for Connect MCP and will not work here.",
-      "composioPlan": "Composio's subscription API is cookie-auth only, so Usagi cannot read your plan from an org key. Pick your plan for accurate quota bars, or leave Auto (Free quotas; escalates if month-to-date usage exceeds a lower tier)."
+      "composioPlan": "Composio's subscription API is cookie-auth only, so Usagi cannot read your plan from an org key. Pick your plan for accurate quota bars, or leave Auto (Free quotas; escalates if month-to-date usage exceeds a lower tier).",
+      "commandCodeKey": "From commandcode.ai/studio → API Keys (same key as the CLI / Provider API). Usagi polls GET /alpha/billing/credits for plan + top-up balance and 5-hour / weekly windows, plus /alpha/billing/subscriptions for the plan label."
     },
     "composioPlans": {
       "auto": "Auto (Totally Free quotas)",
@@ -139,6 +145,7 @@
       "tavilyKeyRequired": "Paste your Tavily API key.",
       "exaKeyRequired": "Paste your Exa Team Management service key.",
       "composioKeyRequired": "Paste your Composio org API key (oak_…).",
+      "commandCodeKeyRequired": "Paste your Command Code API key (user_…).",
       "oauthCallbackRequired": "Paste the OAuth callback URL after signing in.",
       "oauthStartFailed": "Failed to start OAuth",
       "saveFailed": "Save failed",
