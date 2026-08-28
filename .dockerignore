@@ -61,9 +61,6 @@ compose.yml
 docker-compose*.yaml
 docker-compose*.yml
 
-# Local tooling / fixtures (not needed in image)
-scripts/
-
 # CI/CD
 .github/
 .gitlab-ci.yml
