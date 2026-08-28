@@ -71,9 +71,9 @@ api.post("/accounts", async (c) => {
     account = { id: randomUUID(), provider: body.provider, name, span: body.span ?? DEFAULT_SPAN[body.provider], credentials: { apiKey, ...(body.provider === "exa" && body.keyId ? { keyId: String(body.keyId).trim() } : {}), ...(body.provider === "composio" && body.plan ? { plan: body.plan as ComposioPlanId } : {}) } as Account["credentials"], authStatus: "ok", createdAt: now, updatedAt: now } as Account;
   } else if (body.provider === "codex" && typeof body.oauthCallbackUrl === "string") {
     const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
-    const verifier = await takeOAuthState(state, "codex");
-    if (!verifier) return c.json({ error: "OAuth state expired — start login again" }, 400);
-    const credentials = await exchangeCodexCode({ code, codeVerifier: verifier });
+    const taken = await takeOAuthState(state, "codex");
+    if (!taken?.verifier) return c.json({ error: "OAuth state expired — start login again" }, 400);
+    const credentials = await exchangeCodexCode({ code, codeVerifier: taken.verifier });
     account = { id: randomUUID(), provider: "codex", name: name || credentials.email || "Codex", span: body.span ?? DEFAULT_SPAN.codex, credentials, authStatus: "ok", createdAt: now, updatedAt: now };
   } else if (body.provider === "antigravity" && typeof body.oauthCallbackUrl === "string") {
     const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
@@ -93,7 +93,7 @@ api.patch("/accounts/:id", async (c) => {
   if (next.provider === "opencode-go" && typeof body.cookie === "string" && body.cookie.trim()) next = { ...next, credentials: { cookie: body.cookie.trim(), ...(typeof body.workspaceId === "string" && body.workspaceId.trim() ? { workspaceId: body.workspaceId.trim() } : {}) } };
   if (next.provider === "cursor" && typeof body.cookie === "string" && body.cookie.trim()) next = { ...next, credentials: { cookie: normalizeCursorCookie(body.cookie) } };
   if ((next.provider === "tavily" || next.provider === "exa" || next.provider === "composio" || next.provider === "command-code") && typeof body.apiKey === "string" && body.apiKey.trim()) next = { ...next, credentials: { ...next.credentials, apiKey: body.apiKey.trim(), ...(next.provider === "exa" && typeof body.keyId === "string" ? { keyId: body.keyId.trim() || undefined } : {}), ...(next.provider === "composio" && typeof body.plan === "string" && body.plan ? { plan: body.plan as ComposioPlanId } : {}) } } as Account;
-  if (next.provider === "codex" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) { const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl); const verifier = await takeOAuthState(state, "codex"); if (!verifier) return c.json({ error: "OAuth state expired — start login again" }, 400); next = { ...next, credentials: await exchangeCodexCode({ code, codeVerifier: verifier }), authStatus: "ok", authError: undefined }; }
+  if (next.provider === "codex" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) { const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl); const taken = await takeOAuthState(state, "codex"); if (!taken?.verifier) return c.json({ error: "OAuth state expired — start login again" }, 400); next = { ...next, credentials: await exchangeCodexCode({ code, codeVerifier: taken.verifier }), authStatus: "ok", authError: undefined }; }
   if (next.provider === "antigravity" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) { const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl); if (!(await takeOAuthState(state, "antigravity"))) return c.json({ error: "OAuth state expired — start login again" }, 400); next = { ...next, credentials: await exchangeAntigravityCode({ code }), authStatus: "ok", authError: undefined }; }
   await saveAccount(next); invalidateUsageCache(next.id);
   return c.json(publicResult(await fetchUsageForAccount(next, { force: true })));

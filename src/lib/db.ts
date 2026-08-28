@@ -138,5 +138,20 @@ export async function writeUsageSnapshots(entries: Map<string, { usage: AccountU
 export async function removeUsageSnapshot(accountId: string) { const db = await getDatabase(); await db.delete(usageSnapshots).where(eq(usageSnapshots.accountId, accountId)); }
 export async function clearUsageSnapshots() { const db = await getDatabase(); await db.delete(usageSnapshots); }
 
-export async function saveOAuthState(state: string, verifier: string | null, kind: string) { const db = await getDatabase(); await db.insert(oauthStates).values({ state, verifier, kind, createdAt: Date.now() }); }
-export async function takeOAuthState(state: string, kind: string): Promise<string | null> { const db = await getDatabase(); const rows = await db.select().from(oauthStates).where(eq(oauthStates.state, state)).limit(1); const row = rows[0]; if (!row || row.kind !== kind || Date.now() - row.createdAt > 15 * 60 * 1000) return null; await db.delete(oauthStates).where(eq(oauthStates.state, state)); return row.verifier; }
+export async function saveOAuthState(state: string, verifier: string | null, kind: string) {
+  const db = await getDatabase();
+  await db.insert(oauthStates).values({ state, verifier, kind, createdAt: Date.now() });
+}
+
+/** Returns null when the state is missing, mismatched, or expired. `verifier` is null for non-PKCE providers (Antigravity). */
+export async function takeOAuthState(
+  state: string,
+  kind: string,
+): Promise<{ verifier: string | null } | null> {
+  const db = await getDatabase();
+  const rows = await db.select().from(oauthStates).where(eq(oauthStates.state, state)).limit(1);
+  const row = rows[0];
+  if (!row || row.kind !== kind || Date.now() - row.createdAt > 15 * 60 * 1000) return null;
+  await db.delete(oauthStates).where(eq(oauthStates.state, state));
+  return { verifier: row.verifier };
+}
