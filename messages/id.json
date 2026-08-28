@@ -9,6 +9,7 @@
     "invalid": "Kata sandi tidak valid."
   },
   "App": {
+    "api": "API",
     "addAccount": "Tambah akun",
     "emptyTitle": "Belum ada akun",
     "emptyBody": "Tambahkan akun provider untuk memantau kuota, kredit, dan jendela reset dari satu papan.",
@@ -17,6 +18,19 @@
     "updateFailed": "Pembaruan gagal",
     "createFailed": "Pembuatan gagal",
     "deleteFailed": "Penghapusan gagal"
+  },
+  "Api": {
+    "kicker": "JSON",
+    "title": "API papan",
+    "close": "Tutup",
+    "closeDialog": "Tutup dokumentasi API",
+    "intro": "Papan live dalam JSON — objek akun dan penggunaan yang sama dengan UI.",
+    "endpoints": "Endpoint",
+    "forceHint": "Tambahkan ?force=1 untuk melewati jendela refresh provider jika diizinkan.",
+    "curl": "curl",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "authNote": "Kirim kata sandi bersama sebagai Bearer token atau X-Usagi-Password. Cookie sesi browser juga berlaku."
   },
   "LocaleSwitcher": {
     "label": "Bahasa",
@@ -27,7 +41,8 @@
     "board": "Memuat papan Anda",
     "accounts": "Memuat akun",
     "accountsEllipsis": "Memuat akun…",
-    "usage": "Memuat penggunaan"
+    "usage": "Memuat penggunaan",
+    "refreshingQuotas": "Menyegarkan kuota"
   },
   "Providers": {
     "codex": {

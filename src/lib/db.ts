@@ -117,7 +117,17 @@ export async function replaceAccounts(next: Account[]) {
 export async function reorderAccounts(orderedIds: string[]) {
   const current = await listAccounts();
   const byId = new Map(current.map((account) => [account.id, account]));
-  const next = [...orderedIds.map((id) => byId.get(id)).filter((account): account is Account => Boolean(account)), ...byId.values()];
+  const next: Account[] = [];
+  for (const id of orderedIds) {
+    const account = byId.get(id);
+    if (account) {
+      next.push(account);
+      byId.delete(id);
+    }
+  }
+  for (const leftover of byId.values()) {
+    next.push(leftover);
+  }
   await replaceAccounts(next);
   return next;
 }

@@ -9,6 +9,7 @@
     "invalid": "Invalid password."
   },
   "App": {
+    "api": "API",
     "addAccount": "Add account",
     "emptyTitle": "No accounts yet",
     "emptyBody": "Add a provider account to watch quotas, credits, and reset windows from one board.",
@@ -17,6 +18,19 @@
     "updateFailed": "Update failed",
     "createFailed": "Create failed",
     "deleteFailed": "Delete failed"
+  },
+  "Api": {
+    "kicker": "JSON",
+    "title": "Board API",
+    "close": "Close",
+    "closeDialog": "Close API docs",
+    "intro": "Live board as JSON — the same account and usage objects the UI shows.",
+    "endpoints": "Endpoints",
+    "forceHint": "Add ?force=1 to bypass provider refresh windows where allowed.",
+    "curl": "curl",
+    "copy": "Copy",
+    "copied": "Copied",
+    "authNote": "Send the shared password as a Bearer token or X-Usagi-Password. Browser session cookies also work."
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -27,7 +41,8 @@
     "board": "Loading your board",
     "accounts": "Loading accounts",
     "accountsEllipsis": "Loading accounts…",
-    "usage": "Loading usage"
+    "usage": "Loading usage",
+    "refreshingQuotas": "Refreshing quotas"
   },
   "Providers": {
     "codex": {

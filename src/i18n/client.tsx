@@ -12,6 +12,7 @@ const LocaleContext = createContext<{
 }>({ locale: defaultLocale, setLocale: () => undefined });
 
 function getInitialLocale(): Locale {
+  if (typeof document === "undefined") return defaultLocale;
   const stored = document.cookie
     .split(";")
     .map((value) => value.trim().split("="))

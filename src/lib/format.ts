@@ -19,5 +19,5 @@ export function formatResetCountdown(
 export function meterFillClass(usedPercent: number): string {
   if (usedPercent >= 90) return "bg-meter-crit";
   if (usedPercent >= 75) return "bg-meter-warn";
-  return "bg-accent";
+  return "bg-meter-fill";
 }

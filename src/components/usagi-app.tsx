@@ -10,7 +10,9 @@ import {
 } from "react";
 import { useTranslations } from "@/i18n/client";
 import { AccountsLoading } from "@/components/accounts-loading";
+import { ApiDocsModal } from "@/components/api-docs-modal";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { UsageOverlay } from "@/components/usage-overlay";
 import { reorderCardsByIds } from "@/lib/board-layout";
 import type { AccountCardModel } from "@/lib/types";
 import type { WizardDraft } from "@/components/account-wizard";
@@ -20,8 +22,25 @@ import { AccountWizard } from "@/components/account-wizard";
 
 const REFRESH_MS = 5_000;
 
+function sameBoard(a: AccountCardModel[], b: AccountCardModel[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (!left || !right) return false;
+    if (left.account.id !== right.account.id) return false;
+    if (left.account.updatedAt !== right.account.updatedAt) return false;
+    if (left.usage?.fetchedAt !== right.usage?.fetchedAt) return false;
+    if (left.usage?.status !== right.usage?.status) return false;
+  }
+  return true;
+}
+
 const addBtnClass =
-  "shrink-0 cursor-pointer whitespace-nowrap rounded-md border border-accent bg-accent px-4 py-2.5 font-display text-sm font-semibold text-accent-ink transition-[transform,filter] duration-220 ease-out hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
+  "shrink-0 cursor-pointer whitespace-nowrap rounded-sm border border-accent bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition-[filter] duration-150 ease-out hover:brightness-110 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
+
+const apiBtnClass =
+  "shrink-0 cursor-pointer whitespace-nowrap rounded-sm border border-rule bg-transparent px-3.5 py-2.5 text-sm text-ink transition-colors duration-150 ease-out hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-focus";
 
 type UsagiAppProps = {
   /** SSR shell: accounts + last-known usage (may be null). */
@@ -34,12 +53,14 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
     () => initialCards ?? [],
   );
   const [loading, setLoading] = useState(() => initialCards == null);
+  const [usageReady, setUsageReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [apiOpen, setApiOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [, setClock] = useState(() => Date.now());
   const pauseRefreshRef = useRef(false);
   const refreshVersionRef = useRef(0);
+  const bootShellRef = useRef(true);
   const hasCardsRef = useRef((initialCards?.length ?? 0) > 0);
 
   const editingCard = useMemo(
@@ -49,16 +70,17 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
 
   const applyCards = useCallback((next: AccountCardModel[]) => {
     hasCardsRef.current = next.length > 0;
-    setCards(next);
+    setCards((prev) => (sameBoard(prev, next) ? prev : next));
     setLoadError(null);
     setLoading(false);
-    setClock(Date.now());
   }, []);
 
   /** Instant shell — accounts + cached meters, no live provider calls. */
-  const refreshShell = useCallback(async () => {
+  const refreshShell = useCallback(
+    async (options?: { ignoreHidden?: boolean }) => {
     if (pauseRefreshRef.current) return;
     if (
+      !options?.ignoreHidden &&
       typeof document !== "undefined" &&
       document.visibilityState === "hidden"
     ) {
@@ -77,7 +99,16 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
           setLoading(false);
           return;
         }
-        applyCards(json.accounts ?? []);
+        const next = json.accounts ?? [];
+        applyCards(
+          bootShellRef.current
+            ? next.map((card) => ({ ...card, usage: null }))
+            : next,
+        );
+        if (next.length === 0) {
+          bootShellRef.current = false;
+          setUsageReady(true);
+        }
       });
     } catch (error) {
       startTransition(() => {
@@ -88,13 +119,16 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
         setLoading(false);
       });
     }
-  }, [applyCards, t]);
+    },
+    [applyCards, t],
+  );
 
   /** Live usage refresh — may be slow; board should already be painted. */
   const refreshUsage = useCallback(
-    async (options?: { force?: boolean }) => {
+    async (options?: { force?: boolean; ignoreHidden?: boolean }) => {
       if (pauseRefreshRef.current) return;
       if (
+        !options?.ignoreHidden &&
         typeof document !== "undefined" &&
         document.visibilityState === "hidden"
       ) {
@@ -110,24 +144,26 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
           accounts?: AccountCardModel[];
           error?: string;
         };
+        if (
+          pauseRefreshRef.current ||
+          refreshVersion !== refreshVersionRef.current
+        ) {
+          return;
+        }
+        bootShellRef.current = false;
+        setUsageReady(true);
+        if (!res.ok) {
+          if (!hasCardsRef.current) {
+            setLoadError(json.error ?? "Failed to refresh usage");
+          }
+          return;
+        }
         startTransition(() => {
-          if (
-            pauseRefreshRef.current ||
-            refreshVersion !== refreshVersionRef.current
-          ) {
-            return;
-          }
-          if (!res.ok) {
-            // Keep shell visible; surface error only if we have no cards yet.
-            if (!hasCardsRef.current) {
-              setLoadError(json.error ?? "Failed to refresh usage");
-            }
-            return;
-          }
           applyCards(json.accounts ?? []);
         });
       } catch {
-        // Soft-fail usage refresh; shell/cached meters stay up.
+        bootShellRef.current = false;
+        setUsageReady(true);
       }
     },
     [applyCards],
@@ -138,12 +174,12 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
 
     async function boot() {
       if (initialCards == null) {
-        await refreshShell();
+        await refreshShell({ ignoreHidden: true });
       } else {
         setLoading(false);
       }
       if (cancelled) return;
-      await refreshUsage();
+      await refreshUsage({ ignoreHidden: true });
     }
 
     const bootTimer = window.setTimeout(() => {
@@ -275,51 +311,63 @@ export function UsagiApp({ initialCards }: UsagiAppProps) {
   return (
     <div className="flex min-h-dvh flex-col">
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-[clamp(1rem,3vw,2rem)]">
-        <header className="flex items-center justify-between gap-6 py-6 max-[40rem]:items-start">
+        <header className="flex items-center justify-between gap-6 border-b border-rule py-5 max-[40rem]:items-start">
           <div className="min-w-0">
-            <p className="m-0 font-display text-[clamp(2rem,4vw+0.5rem,2.75rem)] leading-none font-bold tracking-[-0.045em] text-ink">
+            <p className="m-0 font-display text-[1.75rem] leading-none font-bold tracking-[-0.03em] text-ink">
               Usagi
               <span
-                className="ml-1 inline-block size-[0.45em] translate-y-[0.12em] rounded-sm bg-accent align-baseline"
+                className="ml-1.5 inline-block size-2.5 translate-y-[-0.12em] bg-accent align-baseline"
                 aria-hidden
               />
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
             <LocaleSwitcher />
+            <button
+              type="button"
+              className={apiBtnClass}
+              onClick={() => setApiOpen(true)}
+            >
+              {t("api")}
+            </button>
             <button type="button" className={addBtnClass} onClick={openCreate}>
               {t("addAccount")}
             </button>
           </div>
         </header>
 
-        <main className="flex-1 pb-12">
+        <main className="flex-1 py-8 pb-16">
           {loading ? (
             <AccountsLoading />
           ) : loadError ? (
             <p className="text-danger">{loadError}</p>
           ) : cards.length === 0 ? (
-            <section className="mx-auto mt-16 flex max-w-md flex-col gap-4 text-center items-center">
-              <h1 className="m-0 font-display text-[clamp(2.25rem,4vw+0.5rem,3rem)] font-semibold tracking-[-0.03em]">
+            <section className="mx-auto mt-16 flex max-w-md flex-col items-center gap-4 text-center">
+              <h1 className="m-0 font-display text-[1.5rem] font-semibold tracking-[-0.02em]">
                 {t("emptyTitle")}
               </h1>
-              <p className="m-0 text-ink-2">{t("emptyBody")}</p>
+              <p className="m-0 max-w-prose text-ink-2">{t("emptyBody")}</p>
               <button type="button" className={addBtnClass} onClick={openCreate}>
                 {t("addAccount")}
               </button>
             </section>
           ) : (
-            <AccountsBoard
-              cards={cards}
-              onOpen={openEdit}
-              onReorder={(orderedIds) => {
-                void handleReorder(orderedIds);
-              }}
-              onDragActiveChange={handleDragActiveChange}
-            />
+            <>
+              {!usageReady ? <UsageOverlay /> : null}
+              <AccountsBoard
+                cards={cards}
+                onOpen={openEdit}
+                onReorder={(orderedIds) => {
+                  void handleReorder(orderedIds);
+                }}
+                onDragActiveChange={handleDragActiveChange}
+              />
+            </>
           )}
         </main>
       </div>
+
+      {apiOpen ? <ApiDocsModal onClose={() => setApiOpen(false)} /> : null}
 
       {wizardOpen ? (
         <AccountWizard

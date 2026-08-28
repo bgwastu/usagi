@@ -15,7 +15,7 @@ export function LocaleSwitcher() {
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-md border border-rule p-0.5"
+      className="flex items-center gap-0.5 rounded-sm border border-rule p-0.5"
       role="group"
       aria-label={t("label")}
     >
@@ -27,8 +27,8 @@ export function LocaleSwitcher() {
             type="button"
             className={
               active
-                ? "cursor-default rounded-sm bg-paper-3 px-2.5 py-1.5 font-display text-xs font-semibold tracking-[0.04em] text-ink"
-                : "cursor-pointer rounded-sm px-2.5 py-1.5 font-display text-xs font-medium tracking-[0.04em] text-muted transition-colors duration-120 ease-out hover:bg-paper-2 hover:text-ink"
+                ? "cursor-default rounded-sm bg-paper-3 px-2.5 py-1.5 text-[0.6875rem] font-semibold tracking-[0.04em] text-ink"
+                : "cursor-pointer rounded-sm px-2.5 py-1.5 text-[0.6875rem] font-medium tracking-[0.04em] text-muted transition-colors duration-150 ease-out hover:bg-paper-2 hover:text-ink"
             }
             aria-pressed={active}
             disabled={active}

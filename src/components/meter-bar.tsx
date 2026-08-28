@@ -65,9 +65,9 @@ function MeterTrack({
         onPointerEnter={showTip}
         onPointerLeave={hideTip}
       >
-        <div className="h-1.5 overflow-hidden rounded-full bg-meter-track">
+        <div className="h-1.5 overflow-hidden rounded-sm bg-meter-track">
           <div
-            className={`h-full origin-left rounded-full ${meterFillClass(usedPct)}${
+            className={`h-full origin-left rounded-sm ${meterFillClass(usedPct)}${
               entrance
                 ? " motion-safe:animate-[meter-fill_420ms_var(--ease-out)_both]"
                 : ""
@@ -84,7 +84,7 @@ function MeterTrack({
         ? createPortal(
             <div
               role="tooltip"
-              className="pointer-events-none fixed z-50 rounded-md border border-rule bg-ink px-2 py-1 font-outlier text-xs tabular-nums text-paper shadow-[0_8px_20px_oklch(22%_0.02_40/0.18)] motion-safe:animate-[fade-in_140ms_var(--ease-out)_both]"
+              className="pointer-events-none fixed z-50 rounded-sm border border-rule bg-ink px-2 py-1 font-outlier text-[0.8125rem] tabular-nums text-paper motion-safe:animate-[fade-in_140ms_var(--ease-out)_both]"
               style={{
                 left: tip.x,
                 top: tip.y,
@@ -156,10 +156,10 @@ export function MeterBar({
     return (
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 items-baseline justify-between gap-2">
-          <span className="shrink-0 text-xs tracking-[0.04em] text-muted uppercase">
+          <span className="shrink-0 text-[0.6875rem] tracking-[0.04em] text-muted uppercase">
             {meter.label}
           </span>
-          <span className="min-w-0 truncate text-right font-outlier text-xs tabular-nums text-ink sm:text-sm">
+          <span className="min-w-0 truncate text-right font-outlier text-[0.8125rem] tabular-nums text-ink">
             {valueText}
           </span>
         </div>
@@ -199,10 +199,10 @@ export function MeterBar({
   return (
     <div className={`flex min-w-0 flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs tracking-[0.04em] text-muted uppercase">
+        <span className="text-[0.6875rem] tracking-[0.04em] text-muted uppercase">
           {meter.label}
         </span>
-        <span className="font-outlier text-sm tabular-nums text-ink">
+        <span className="font-outlier text-[0.8125rem] tabular-nums text-ink">
           {t("percentLeft", { percent: Math.round(remaining) })}
         </span>
       </div>

@@ -21,6 +21,15 @@ api.post("/auth/login", async (c) => {
 });
 api.post("/auth/logout", (c) => { logout(c); return c.json({ ok: true }); });
 
+/** Live board JSON — same payload the UI uses after the first usage refresh. */
+api.get("/", requireAuth, async (c) => {
+  const force = c.req.query("force") === "1";
+  return c.json({
+    generatedAt: Date.now(),
+    accounts: await refreshAccountUsages(await listAccounts(), { force }),
+  });
+});
+
 api.use("/accounts/*", requireAuth);
 api.use("/accounts", requireAuth);
 api.use("/oauth/*", requireAuth);

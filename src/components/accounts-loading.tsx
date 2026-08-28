@@ -13,11 +13,11 @@ import {
   type BoardBreakpoint,
 } from "@/lib/board-layout";
 
-/** Match content-sized board tiles (1px row units). */
+/** Match content-sized board tiles (1px row units) with generous padding bottom. */
 const skeletonSizes = [
-  { w: 2, h: 140 },
-  { w: 2, h: 140 },
-  { w: 2, h: 220 },
+  { w: 2, h: 176 },
+  { w: 2, h: 176 },
+  { w: 2, h: 236 },
   { w: 2, h: 140 },
 ] as const;
 
@@ -31,8 +31,8 @@ function ShimmerBar({ className }: { className: string }) {
 }
 
 function breakpointForWidth(width: number): BoardBreakpoint {
-  if (width >= 768) return "lg";
-  if (width >= 640) return "sm";
+  if (width > 768) return "lg";
+  if (width > 640) return "sm";
   return "xs";
 }
 
@@ -46,13 +46,24 @@ export function AccountsLoading() {
     if (!node) return;
 
     const update = () => {
-      setWidth(node.getBoundingClientRect().width);
+      const next = Math.round(node.getBoundingClientRect().width);
+      setWidth((prev) => (prev === next ? prev : next));
     };
     update();
 
-    const observer = new ResizeObserver(update);
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    });
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, []);
 
   const bp = breakpointForWidth(width);
@@ -69,15 +80,12 @@ export function AccountsLoading() {
   const height = boardPixelHeight(layout);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3 motion-safe:animate-[fade-in_420ms_var(--ease-out)_both]">
-        <span
-          className="relative size-2.5 shrink-0 rounded-full bg-accent"
-          aria-hidden
-        >
-          <span className="absolute inset-0 rounded-full bg-accent motion-safe:animate-[ping_1.4s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40" />
-        </span>
-        <p className="m-0 font-display text-sm font-medium tracking-[-0.01em] text-ink-2">
+    <div className="flex flex-col gap-8 pb-16">
+      <div className="flex items-center gap-3 pb-2 motion-safe:animate-[fade-in_220ms_var(--ease-out)_both]">
+        <div className="h-px w-32 overflow-hidden bg-rule" aria-hidden>
+          <div className="h-full w-1/2 bg-accent motion-safe:animate-[quota-scan_1.1s_var(--ease-in-out)_infinite]" />
+        </div>
+        <p className="m-0 text-[0.6875rem] font-medium tracking-[0.08em] text-ink-2 uppercase">
           {t("board")}
         </p>
       </div>
@@ -97,18 +105,18 @@ export function AccountsLoading() {
               return (
                 <div
                   key={item.i}
-                  className="absolute flex flex-col gap-3 rounded-2xl border border-rule bg-paper/90 p-4 shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] motion-safe:animate-[tile-in_520ms_var(--ease-out)_both]"
+                  className="box-border absolute flex flex-col gap-3 overflow-hidden rounded-md border border-rule bg-paper p-4 motion-safe:animate-[tile-in_320ms_var(--ease-out)_both]"
                   style={{
                     left: box.left,
                     top: box.top,
                     width: box.width,
                     height: box.height,
-                    animationDelay: `${index * 80}ms`,
+                    animationDelay: `${index * 60}ms`,
                   }}
                 >
                   <div className="flex items-start gap-3">
                     <span
-                      className="size-10 shrink-0 rounded-md border border-rule bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                      className="size-10 shrink-0 rounded-sm border border-rule bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
                       style={{ animationDelay: `${index * 90}ms` }}
                       aria-hidden
                     />
@@ -123,7 +131,7 @@ export function AccountsLoading() {
                         <ShimmerBar className="h-2.5 w-14" />
                         <ShimmerBar className="h-2.5 w-10" />
                       </div>
-                      <ShimmerBar className="h-2 w-full rounded-full" />
+                      <ShimmerBar className="h-2 w-full rounded-sm" />
                     </div>
                     {tall || index < 2 ? (
                       <div className="flex flex-col gap-1.5">
@@ -131,7 +139,7 @@ export function AccountsLoading() {
                           <ShimmerBar className="h-2.5 w-16" />
                           <ShimmerBar className="h-2.5 w-10" />
                         </div>
-                        <ShimmerBar className="h-2 w-full rounded-full" />
+                        <ShimmerBar className="h-2 w-full rounded-sm" />
                       </div>
                     ) : null}
                     {tall ? (
@@ -140,7 +148,7 @@ export function AccountsLoading() {
                           <ShimmerBar className="h-2.5 w-12" />
                           <ShimmerBar className="h-2.5 w-8" />
                         </div>
-                        <ShimmerBar className="h-2 w-full rounded-full" />
+                        <ShimmerBar className="h-2 w-full rounded-sm" />
                       </div>
                     ) : null}
                   </div>

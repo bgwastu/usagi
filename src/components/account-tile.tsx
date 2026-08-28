@@ -10,8 +10,8 @@ import {
 import { useTranslations } from "@/i18n/client";
 import { MeterBar } from "@/components/meter-bar";
 import { ProviderIcon } from "@/components/provider-icons";
-import { BOARD_DRAG_HANDLE_CLASS } from "@/lib/board-layout";
 import { getAntigravityQuotaFamily } from "@/lib/antigravity-quota";
+import { BOARD_DRAG_HANDLE_CLASS } from "@/lib/board-layout";
 import {
   PROVIDER_META,
   type AccountCardModel,
@@ -29,15 +29,15 @@ type AccountTileProps = {
 const CLICK_SLOP_PX = 6;
 
 const tileClassName =
-  "box-border flex h-full w-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-rule bg-paper/90 p-4 text-left text-ink shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_8px_24px_oklch(50%_0.03_45/0.06)] transition-[box-shadow,border-color,background-color] duration-220 ease-out hover:border-accent/45 hover:bg-paper-2/92 hover:shadow-[0_1px_0_oklch(22%_0.02_40/0.04),0_12px_28px_oklch(50%_0.03_45/0.1)]";
+  "box-border flex h-full w-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-rule bg-paper p-4 text-left text-ink transition-colors duration-150 ease-out hover:border-ink/25 hover:bg-paper-2";
 
 function DragHandle() {
   const t = useTranslations("Tile");
   return (
     <span
-      className={`${BOARD_DRAG_HANDLE_CLASS} -mr-1.5 -mt-1.5 grid size-9 shrink-0 touch-none place-items-center rounded-md text-muted transition-colors duration-220 ease-out hover:bg-paper-3 hover:text-ink`}
-      aria-hidden
+      className={`${BOARD_DRAG_HANDLE_CLASS} grid size-9 shrink-0 cursor-grab place-items-center rounded-sm text-muted transition-colors hover:bg-paper-3/60 hover:text-ink active:cursor-grabbing`}
       title={t("dragTitle")}
+      aria-hidden
     >
       <svg
         width="14"
@@ -45,6 +45,7 @@ function DragHandle() {
         viewBox="0 0 14 14"
         fill="currentColor"
         xmlns="http://www.w3.org/2000/svg"
+        className="pointer-events-none"
       >
         <circle cx="5" cy="3.5" r="1.15" />
         <circle cx="9" cy="3.5" r="1.15" />
@@ -137,25 +138,25 @@ export function AccountTile({
       }}
     >
       <div ref={measureRef} className="flex w-full shrink-0 flex-col gap-3">
-        <div
-          role="button"
-          tabIndex={0}
-          className="-m-1 flex min-w-0 cursor-pointer items-start justify-between gap-2 rounded-lg p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          aria-label={t("ariaLabel", {
-            provider: meta.displayName,
-            name: account.name,
-          })}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onClick={openEdit}
-          onKeyDown={handleHeaderKeyDown}
-        >
-          <div className="flex min-w-0 flex-1 gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-md border border-rule bg-paper-3 text-ink">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div
+            role="button"
+            tabIndex={0}
+            className="-m-1 flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            aria-label={t("ariaLabel", {
+              provider: meta.displayName,
+              name: account.name,
+            })}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onClick={openEdit}
+            onKeyDown={handleHeaderKeyDown}
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-rule bg-paper-2 text-ink">
               <ProviderIcon provider={account.provider} size={18} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="m-0 truncate font-display text-base font-semibold tracking-[-0.02em]">
+              <p className="m-0 truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em]">
                 {meta.displayName}
               </p>
               <p className="mt-0.5 truncate text-sm text-ink-2">{account.name}</p>
@@ -163,7 +164,7 @@ export function AccountTile({
           </div>
           <div className="flex shrink-0 items-start gap-1">
             {usage?.plan ? (
-              <span className="mt-1 shrink-0 rounded-full border border-rule px-2 py-0.5 font-outlier text-xs tracking-[0.06em] text-muted uppercase">
+              <span className="mt-1 shrink-0 rounded-sm border border-rule px-1.5 py-0.5 font-outlier text-[0.6875rem] tracking-[0.06em] text-muted uppercase">
                 {usage.plan}
               </span>
             ) : null}
@@ -193,7 +194,7 @@ export function AccountTile({
                 />
               </div>
               <span
-                className="block h-2 w-full rounded-full bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  className="block h-2 w-full rounded-sm bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
                 aria-hidden
               />
             </div>
@@ -209,7 +210,7 @@ export function AccountTile({
                 />
               </div>
               <span
-                className="block h-2 w-full rounded-full bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
+                  className="block h-2 w-full rounded-sm bg-paper-3 motion-safe:animate-[shimmer_1.4s_var(--ease-in-out)_infinite]"
                 aria-hidden
               />
             </div>
@@ -230,7 +231,7 @@ export function AccountTile({
                 <div key={meter.id} className="flex flex-col gap-2">
                   <button
                     type="button"
-                    className="-mx-1 cursor-pointer rounded-lg border-0 bg-transparent px-1 py-0.5 text-left transition-colors hover:bg-paper-3/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                    className="-mx-1 cursor-pointer rounded-sm border-0 bg-transparent px-1 py-0.5 text-left transition-colors hover:bg-paper-3/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     aria-expanded={expanded}
                     aria-label={t("toggleMeterGroup", {
                       group: meter.label.split(" · ")[0] ?? meter.label,

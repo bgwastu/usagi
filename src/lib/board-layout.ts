@@ -22,7 +22,7 @@ export const BOARD_DRAG_HANDLE_CLASS = "usagi-drag-handle";
 export const BOARD_ROW_HEIGHT = 1;
 export const BOARD_MARGIN = [16, 16] as const;
 /** Minimum outer card height in px before converting to row units. */
-export const BOARD_MIN_CARD_PX = 120;
+export const BOARD_MIN_CARD_PX = 144;
 /** Vertical padding on account tiles (`p-4` × 2). */
 export const TILE_PADDING_Y = 32;
 
@@ -64,6 +64,10 @@ function meterStackPx(meter: UsageMeter): number {
 
 /** Estimate content height in px (excluding tile padding). */
 export function estimateContentPx(card: AccountCardModel): number {
+  if (card.usage == null) {
+    // 2 shimmer meters + header + gap
+    return 120;
+  }
   const meters = card.usage?.meters ?? [];
   let px = 48 + 12; // header + gap
   for (let i = 0; i < meters.length; i++) {

@@ -1,9 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveGridLayout,
-  useContainerWidth,
   verticalCompactor,
   type Layout,
   type ResponsiveLayouts,
@@ -48,8 +47,8 @@ function mapsEqualRows(
 }
 
 function breakpointForWidth(width: number): BoardBreakpoint {
-  if (width >= BOARD_BREAKPOINTS.lg) return "lg";
-  if (width >= BOARD_BREAKPOINTS.sm) return "sm";
+  if (width > BOARD_BREAKPOINTS.lg) return "lg";
+  if (width > BOARD_BREAKPOINTS.sm) return "sm";
   return "xs";
 }
 
@@ -59,7 +58,37 @@ export function AccountsBoard({
   onReorder,
   onDragActiveChange,
 }: AccountsBoardProps) {
-  const { width, containerRef, mounted } = useContainerWidth();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const update = () => {
+      const next = Math.round(node.getBoundingClientRect().width);
+      if (next > 0) {
+        setWidth((prev) => (prev === next ? prev : next));
+        setMounted(true);
+      }
+    };
+    update();
+
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    });
+    observer.observe(node);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
   const layoutKey = cardsLayoutKey(cards);
   const contentEls = useRef(new Map<string, HTMLElement>());
   const [heightPxById, setHeightPxById] = useState(
@@ -89,21 +118,27 @@ export function AccountsBoard({
       const next = new Map<string, number>();
       for (const [id, node] of contentEls.current) {
         // scrollHeight tracks intrinsic content even when the grid cell is shorter.
-        const contentPx = Math.ceil(
-          Math.max(node.scrollHeight, node.getBoundingClientRect().height),
-        );
+        const contentPx = Math.ceil(node.scrollHeight);
         if (contentPx > 0) next.set(id, contentPx + TILE_PADDING_Y);
       }
       setHeightPxById((prev) => (mapsEqualRows(prev, next) ? prev : next));
     };
 
     publish();
+    let frame = 0;
     const observer = new ResizeObserver(() => {
-      publish();
+      if (draggingRef.current || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        publish();
+      });
     });
     for (const node of nodes) observer.observe(node);
-    return () => observer.disconnect();
-  }, [layoutKey, cards]);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [layoutKey]);
 
   useLayoutEffect(() => {
     return () => {
@@ -115,11 +150,12 @@ export function AccountsBoard({
     dragLayoutsRef.current = dragLayouts;
   }, [dragLayouts]);
 
-  // Drop the drag snapshot once parent order matches (avoids a one-frame flash).
-  if (dragKey !== null && dragKey === layoutKey) {
-    setDragLayouts(null);
-    setDragKey(null);
-  }
+  useEffect(() => {
+    if (dragKey !== null && dragKey === layoutKey) {
+      setDragLayouts(null);
+      setDragKey(null);
+    }
+  }, [dragKey, layoutKey]);
 
   const layouts = dragLayouts ?? baseLayouts;
 
@@ -171,7 +207,7 @@ export function AccountsBoard({
     <div ref={containerRef} className="w-full" aria-label="Provider accounts">
       {mounted && width > 0 ? (
         <ResponsiveGridLayout
-          className={`usagi-board${settling ? " usagi-board--settling" : ""}`}
+          className={`usagi-board relative${settling ? " usagi-board--settling" : ""}`}
           width={width}
           layouts={layouts}
           breakpoints={BOARD_BREAKPOINTS}
@@ -183,8 +219,7 @@ export function AccountsBoard({
           dragConfig={{
             enabled: true,
             bounded: false,
-            threshold: 8,
-            // Only the grip starts a drag so touch scroll still works on the tile body.
+            threshold: 0,
             handle: `.${BOARD_DRAG_HANDLE_CLASS}`,
           }}
           resizeConfig={{ enabled: false }}

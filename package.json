@@ -4,15 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun src/server/dev.ts",
     "dev:server": "bun --watch src/server/node.ts",
     "build": "vite build",
     "start": "bun src/server/node.ts",
     "db:migrate": "bun src/server/migrate.ts",
     "lint": "eslint src vite.config.ts drizzle.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "bun scripts/patch-rgl.ts"
   },
   "dependencies": {
+    "@fontsource-variable/schibsted-grotesk": "^5.3.0",
+    "@fontsource/fragment-mono": "^5.3.0",
     "@hono/node-server": "^2.1.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.1",

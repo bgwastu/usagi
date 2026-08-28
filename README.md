@@ -19,14 +19,30 @@ Or with Docker:
 docker run --rm -p 3000:3000 -v usagi-data:/app/data ghcr.io/bgwastu/usagi:latest
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Accounts live in `data/usagi.sqlite` (gitignored).
+Open [http://localhost:5173](http://localhost:5173) in development, or [http://localhost:3000](http://localhost:3000) for the production server. Accounts live in `data/usagi.sqlite` (gitignored).
 
 Optional environment variables:
 
-- `USAGI_PASSWORD` protects the board and API with a shared password.
+- `USAGI_PASSWORD` protects the board and JSON API with a shared password.
 - `ENCRYPTION_KEY` encrypts provider credentials at rest in SQLite.
 
 The first self-hosted start creates `data/usagi.sqlite` and imports accounts from the legacy `data/data.json` if present.
+
+## JSON API
+
+`GET /api` returns the live board as JSON (same account/usage objects as the UI, credentials stripped). `?force=1` bypasses provider refresh windows where allowed.
+
+```bash
+curl http://localhost:3000/api
+```
+
+If `USAGI_PASSWORD` is set, send it as a Bearer token (or `X-Usagi-Password`):
+
+```bash
+curl -H "Authorization: Bearer $USAGI_PASSWORD" http://localhost:3000/api
+```
+
+The board UI still logs in with a cookie. Browser session cookies and the Bearer password both satisfy the same gate. Auth routes (`/api/auth/*`) stay public so the login form can run.
 
 ## Providers
 
@@ -42,7 +58,4 @@ The first self-hosted start creates `data/usagi.sqlite` and imports accounts fro
 ## Notes
 
 - Runs without login unless `USAGI_PASSWORD` is configured — keep an unprotected instance on localhost or a trusted network.
-- Board shell (accounts + last-known meters) loads instantly; live usage refreshes in the background via `/api/accounts/usage`.
-- UI polls usage every 5s; Tavily live-fetches at most every 2 minutes (10 req / 10 min on `/usage`).
-- Usage snapshots persist in SQLite so cold restarts still show stale meters.
 - Light/dark follows system preference.

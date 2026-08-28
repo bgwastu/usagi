@@ -32,13 +32,13 @@ type AccountWizardProps = {
 type Step = "provider" | "credentials";
 
 const fieldClass =
-  "w-full rounded-md border border-rule bg-paper-2 px-3.5 py-2.5 text-ink transition-colors hover:border-accent/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+  "w-full rounded-sm border border-rule bg-paper-2 px-3.5 py-2.5 text-ink transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
 const secondaryBtnClass =
-  "cursor-pointer rounded-md border border-rule bg-transparent px-3.5 py-2 text-sm text-ink transition-[transform,background-color] duration-120 ease-out hover:-translate-y-px hover:bg-paper-2 active:translate-y-0";
+  "cursor-pointer rounded-sm border border-rule bg-transparent px-3.5 py-2 text-sm text-ink transition-colors duration-150 ease-out hover:bg-paper-2";
 
 const primaryBtnClass =
-  "cursor-pointer rounded-md border border-accent bg-accent px-4 py-2.5 font-display font-semibold text-accent-ink transition-[transform,filter] duration-120 ease-out hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50";
+  "cursor-pointer rounded-sm border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink transition-[filter] duration-150 ease-out hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50";
 
 const authorizeLinkClass = `${secondaryBtnClass} inline-flex self-start no-underline`;
 
@@ -346,7 +346,7 @@ function WizardPanel({
       />
       <div
         ref={panelRef}
-        className="relative max-h-[min(90vh,44rem)] w-full max-w-136 overflow-auto rounded-2xl border border-rule bg-paper p-8 shadow-[0_24px_64px_oklch(22%_0.02_45/0.22)] motion-safe:animate-[modal-in_420ms_var(--ease-out)_both]"
+        className="relative max-h-[min(90vh,44rem)] w-full max-w-136 overflow-auto rounded-md border border-rule bg-paper p-8 motion-safe:animate-[modal-in_220ms_var(--ease-out)_both]"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -354,12 +354,12 @@ function WizardPanel({
       >
         <header className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-1 text-xs tracking-[0.08em] text-muted uppercase">
+            <p className="mb-1 text-[0.6875rem] tracking-[0.08em] text-muted uppercase">
               {mode === "create" ? t("addAccount") : t("editAccount")}
             </p>
             <h2
               id={titleId}
-              className="m-0 font-display text-2xl font-semibold tracking-[-0.03em]"
+              className="m-0 font-display text-[1.5rem] font-semibold tracking-[-0.02em]"
             >
               {step === "provider"
                 ? t("chooseProvider")
@@ -377,13 +377,13 @@ function WizardPanel({
               <button
                 key={id}
                 type="button"
-                className="grid cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] items-center gap-x-4 gap-y-0.5 rounded-md border border-rule bg-paper-2 p-4 text-left transition-[transform,border-color] duration-120 ease-out hover:-translate-y-0.5 hover:border-accent/55"
+                className="grid cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] items-center gap-x-4 gap-y-0.5 rounded-sm border border-rule bg-paper-2 p-4 text-left transition-colors duration-150 ease-out hover:border-ink/30 hover:bg-paper"
                 onClick={() => void selectProvider(id)}
               >
-                <span className="row-span-2 grid size-11 place-items-center rounded-md border border-rule bg-paper-3 text-ink">
+                <span className="row-span-2 grid size-11 place-items-center rounded-sm border border-rule bg-paper text-ink">
                   <ProviderIcon provider={id} size={20} />
                 </span>
-                <span className="font-display text-lg font-semibold">
+                <span className="font-display text-[0.9375rem] font-semibold tracking-[-0.015em]">
                   {PROVIDER_META[id].displayName}
                 </span>
                 <span className="text-sm text-ink-2">
@@ -580,7 +580,7 @@ function WizardPanel({
 
             {provider === "codex" || provider === "antigravity" ? (
               <>
-                <div className="flex flex-col gap-3 rounded-xl border border-dashed border-rule bg-paper-2 p-4">
+                <div className="flex flex-col gap-3 rounded-md border border-dashed border-rule bg-paper-2 p-4">
                   <p className="m-0 text-sm text-ink-2">
                     {provider === "antigravity"
                       ? mode === "edit"
