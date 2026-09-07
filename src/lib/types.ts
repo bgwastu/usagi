@@ -47,6 +47,7 @@ export type AntigravityCredentials = {
   email?: string;
   projectId?: string;
   tierId?: string;
+  plan?: string;
   expiresAt?: number;
   lastRefresh?: number;
 };

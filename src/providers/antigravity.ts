@@ -190,59 +190,85 @@ function mapTierToPlan(tierText: string): string | null {
   if (!upper) return null;
   if (upper.includes("ULTRA")) return "Ultra";
   if (
+    upper.includes("PLUS") ||
+    upper.includes("G1-PLUS") ||
+    upper.includes("G1_PLUS")
+  ) {
+    return "Plus";
+  }
+  if (
     upper.includes("PRO") ||
     upper.includes("PREMIUM") ||
     upper.includes("GOOGLE_ONE") ||
     upper.includes("ONE_AI") ||
-    upper.includes("GOOGLE ONE")
+    upper.includes("GOOGLE ONE") ||
+    upper.includes("G1-PRO") ||
+    upper.includes("G1_PRO")
   ) {
     return "Pro";
   }
   if (upper.includes("ENTERPRISE")) return "Enterprise";
-  if (upper.includes("BUSINESS") || upper.includes("STANDARD")) return "Business";
-  if (upper.includes("PLUS")) return "Plus";
+  if (upper.includes("BUSINESS")) return "Business";
+  if (upper.includes("STANDARD")) return "Standard";
   if (upper.includes("LITE") || upper.includes("LIGHT")) return "Lite";
-  if (upper.includes("FREE") || upper.includes("INDIVIDUAL") || upper.includes("LEGACY")) {
+  if (upper.includes("FREE") || upper.includes("INDIVIDUAL")) {
     return "Free";
   }
   return null;
 }
 
-function planFromSubscription(subscriptionInfo: unknown): string {
-  const subscription = asRecord(subscriptionInfo);
-  if (Object.keys(subscription).length === 0) return "Free";
+function planFromSubscription(subscriptionInfo: unknown): string | null {
+  const data = asRecord(subscriptionInfo);
+  if (Object.keys(data).length === 0) return null;
 
-  const tiers =
-    typeof subscription.subscriptionTier === "string"
-      ? subscription.subscriptionTier
-      : typeof subscription.tier === "string"
-        ? subscription.tier
-        : "";
-  if (tiers) {
-    const mapped = mapTierToPlan(tiers);
+  // 1. Check paidTier first (can be an object with id/name, e.g. Google AI Pro / Plus)
+  const paidTier = data.paidTier;
+  if (paidTier) {
+    if (typeof paidTier === "string") {
+      const mapped = mapTierToPlan(paidTier);
+      if (mapped) return mapped;
+    } else if (typeof paidTier === "object") {
+      const paidObj = asRecord(paidTier);
+      const name = String(paidObj.name ?? paidObj.displayName ?? "");
+      const id = String(paidObj.id ?? "");
+      const mapped = mapTierToPlan(name) || mapTierToPlan(id);
+      if (mapped) return mapped;
+    }
+  }
+
+  // 2. Check explicit subscriptionTier / tier / userTier / planType
+  const tierString =
+    typeof data.subscriptionTier === "string"
+      ? data.subscriptionTier
+      : typeof data.tier === "string"
+        ? data.tier
+        : typeof data.userTier === "string"
+          ? data.userTier
+          : "";
+  if (tierString) {
+    const mapped = mapTierToPlan(tierString);
     if (mapped) return mapped;
   }
 
-  const currentTier = asRecord(subscription.currentTier);
-  const tierName = String(
-    currentTier.name ??
-      currentTier.displayName ??
-      subscription.subscriptionType ??
-      "",
-  );
-  const mappedName = tierName ? mapTierToPlan(tierName) : null;
-  if (mappedName) return mappedName;
-
-  const tierId = String(
-    currentTier.id ?? subscription.tierId ?? subscription.paidTier ?? "",
-  );
-  const mappedId = tierId ? mapTierToPlan(tierId) : null;
-  if (mappedId) return mappedId;
-
-  if (tierName) {
-    return tierName.charAt(0).toUpperCase() + tierName.slice(1).toLowerCase();
+  // 3. Check currentTier (if it has a non-generic identifier or explicit name)
+  const currentTier = asRecord(data.currentTier);
+  if (Object.keys(currentTier).length > 0) {
+    const id = String(currentTier.id ?? "");
+    const name = String(currentTier.name ?? currentTier.displayName ?? "");
+    if (id && id !== "free-tier" && id !== "legacy-tier") {
+      const mapped = mapTierToPlan(id);
+      if (mapped) return mapped;
+    }
+    if (name && name.toLowerCase() !== "antigravity") {
+      const mapped = mapTierToPlan(name);
+      if (mapped) return mapped;
+    }
+    if (id === "free-tier") {
+      return "Free";
+    }
   }
-  return "Free";
+
+  return null;
 }
 
 function projectIdFromLoad(data: JsonRecord): string {
@@ -253,9 +279,15 @@ function projectIdFromLoad(data: JsonRecord): string {
 }
 
 function tierIdFromLoad(data: JsonRecord): string {
+  const paidTier = data.paidTier;
+  if (typeof paidTier === "string" && paidTier.trim()) return paidTier.trim();
+  if (typeof paidTier === "object" && paidTier !== null) {
+    const paidObj = asRecord(paidTier);
+    if (typeof paidObj.id === "string" && paidObj.id.trim()) return paidObj.id.trim();
+    if (typeof paidObj.name === "string" && paidObj.name.trim()) return paidObj.name.trim();
+  }
   const currentTier = asRecord(data.currentTier);
-  if (typeof currentTier.id === "string" && currentTier.id) return currentTier.id;
-  if (typeof data.paidTier === "string" && data.paidTier) return data.paidTier;
+  if (typeof currentTier.id === "string" && currentTier.id.trim()) return currentTier.id.trim();
   return "legacy-tier";
 }
 
@@ -395,6 +427,7 @@ export async function exchangeAntigravityCode(input: {
     email: extras.email,
     projectId: extras.projectId || undefined,
     tierId: extras.tierId || undefined,
+    plan: extras.plan || undefined,
     expiresAt:
       typeof tokens.expires_in === "number"
         ? Date.now() + tokens.expires_in * 1000
@@ -407,6 +440,7 @@ async function postExchange(accessToken: string): Promise<{
   email?: string;
   projectId: string;
   tierId: string;
+  plan?: string;
 }> {
   const userInfoRes = await fetch(`${USERINFO_URL}?alt=json`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -418,6 +452,7 @@ async function postExchange(accessToken: string): Promise<{
 
   let projectId = "";
   let tierId = "legacy-tier";
+  let plan: string | undefined;
   try {
     const loadRes = await fetchFirstOk(
       BASE_URLS.map((base) => `${base}/v1internal:loadCodeAssist`),
@@ -431,6 +466,7 @@ async function postExchange(accessToken: string): Promise<{
     const data = asRecord(await loadRes.json());
     projectId = projectIdFromLoad(data);
     tierId = tierIdFromLoad(data);
+    plan = planFromSubscription(data) ?? undefined;
   } catch {
     // Project assignment is retried lazily during usage fetch.
   }
@@ -443,6 +479,7 @@ async function postExchange(accessToken: string): Promise<{
     email: typeof userInfo.email === "string" ? userInfo.email : undefined,
     projectId,
     tierId,
+    plan,
   };
 }
 
@@ -544,16 +581,20 @@ export async function refreshAntigravityCredentials(
     changed = true;
   }
 
-  if (!working.credentials.projectId?.trim()) {
+  if (!working.credentials.projectId?.trim() || !working.credentials.plan?.trim()) {
     try {
-      const loaded = await ensureProjectId(working.credentials.accessToken);
-      if (loaded.projectId) {
+      const loaded = await ensureProjectId(
+        working.credentials.accessToken,
+        working.credentials.projectId,
+      );
+      if (loaded.projectId || loaded.plan || loaded.tierId) {
         working = {
           ...working,
           credentials: {
             ...working.credentials,
-            projectId: loaded.projectId,
+            projectId: loaded.projectId || working.credentials.projectId,
             tierId: loaded.tierId || working.credentials.tierId,
+            plan: loaded.plan || working.credentials.plan,
           },
           updatedAt: Date.now(),
         };
@@ -570,16 +611,12 @@ export async function refreshAntigravityCredentials(
 async function ensureProjectId(
   accessToken: string,
   existing?: string,
-): Promise<{ projectId: string; subscriptionInfo: unknown; tierId: string }> {
-  // Skip loadCodeAssist when we already have a project — biggest cold-path win.
-  if (existing?.trim()) {
-    return {
-      projectId: existing.trim(),
-      subscriptionInfo: null,
-      tierId: "legacy-tier",
-    };
-  }
-
+): Promise<{
+  projectId: string;
+  subscriptionInfo: unknown;
+  tierId: string;
+  plan?: string;
+}> {
   const loadRes = await fetchFirstOk(
     BASE_URLS.map((base) => `${base}/v1internal:loadCodeAssist`),
     {
@@ -591,9 +628,10 @@ async function ensureProjectId(
   );
   const data = asRecord(await loadRes.json());
   return {
-    projectId: projectIdFromLoad(data),
+    projectId: projectIdFromLoad(data) || existing?.trim() || "",
     subscriptionInfo: data,
     tierId: tierIdFromLoad(data),
+    plan: planFromSubscription(data) ?? undefined,
   };
 }
 
@@ -811,7 +849,9 @@ export async function fetchAntigravityUsage(
     );
     const projectId = loaded.projectId;
     const plan =
+      loaded.plan ||
       planFromSubscription(loaded.subscriptionInfo) ||
+      (account.credentials.plan ? mapTierToPlan(account.credentials.plan) : null) ||
       mapTierToPlan(account.credentials.tierId ?? "") ||
       "Free";
 
