@@ -2,7 +2,11 @@
 
 Self-hosted usage board for provider accounts.
 
-![Usagi board](docs/screenshots/board.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/board-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/board-light.png">
+  <img alt="Usagi board" src="docs/screenshots/board.png">
+</picture>
 
 ## Run
 
