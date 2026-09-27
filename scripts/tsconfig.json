@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": ["antigravity-quota.test.ts", "bun-test.d.ts"],
+  "exclude": []
+}

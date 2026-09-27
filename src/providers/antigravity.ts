@@ -717,27 +717,99 @@ function metersFromQuotaSummary(data: unknown): UsageMeter[] {
   return meters;
 }
 
-async function fetchQuotaSummary(
+/** Daily serves the live pool. Prod often answers with a full placeholder. */
+const QUOTA_READ_HOSTS = [
+  "https://daily-cloudcode-pa.googleapis.com",
+  "https://cloudcode-pa.googleapis.com",
+] as const;
+
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const PLACEHOLDER_SLOP_MS = 60 * 1000;
+
+function summaryGroups(data: unknown): unknown[] {
+  const root = asRecord(data);
+  if (Array.isArray(root.groups)) return root.groups;
+  const nested = asRecord(root.quotaSummary).groups;
+  return Array.isArray(nested) ? nested : [];
+}
+
+function quotaBuckets(data: unknown): JsonRecord[] {
+  const grouped: JsonRecord[] = [];
+  for (const groupValue of summaryGroups(data)) {
+    const buckets = asRecord(groupValue).buckets;
+    if (!Array.isArray(buckets)) continue;
+    for (const bucketValue of buckets) grouped.push(asRecord(bucketValue));
+  }
+  if (grouped.length > 0) return grouped;
+  const rootBuckets = asRecord(data).buckets;
+  return Array.isArray(rootBuckets)
+    ? rootBuckets.map((bucket) => asRecord(bucket))
+    : [];
+}
+
+function isExactWindowReset(resetsAt: number, now: number): boolean {
+  const delta = resetsAt - now;
+  return (
+    Math.abs(delta - FIVE_HOURS_MS) <= PLACEHOLDER_SLOP_MS ||
+    Math.abs(delta - SEVEN_DAYS_MS) <= PLACEHOLDER_SLOP_MS
+  );
+}
+
+/**
+ * Prod returns every bucket at remainingFraction 1 with a reset glued to
+ * now+5h or now+7d. A live body has at least one bucket that is not that shape.
+ */
+function isPlaceholderQuota(data: unknown, now = Date.now()): boolean {
+  const dated = quotaBuckets(data).filter(
+    (bucket) => bucket.disabled !== true && parseResetTime(bucket.resetTime) != null,
+  );
+  if (dated.length === 0) return false;
+  return dated.every((bucket) => {
+    const fraction = readRemainingFraction(bucket);
+    const resetsAt = parseResetTime(bucket.resetTime);
+    return (
+      fraction === 1 &&
+      resetsAt != null &&
+      isExactWindowReset(resetsAt, now)
+    );
+  });
+}
+
+async function fetchQuotaDocument(
+  path: "v1internal:retrieveUserQuotaSummary" | "v1internal:retrieveUserQuota",
   accessToken: string,
   projectId: string,
-): Promise<UsageMeter[]> {
-  try {
-    // Prod host + IDE User-Agent are required; bare Authorization gets 403 on Free,
-    // and daily-* hosts return stale full Gemini fractions.
-    const response = await fetch(
-      "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
-      {
+): Promise<unknown | null> {
+  for (const host of QUOTA_READ_HOSTS) {
+    try {
+      const response = await fetch(`${host}/${path}`, {
         method: "POST",
         headers: authHeaders(accessToken, "api"),
         body: JSON.stringify({ project: projectId }),
         signal: AbortSignal.timeout(10_000),
-      },
-    );
-    if (!response.ok) return [];
-    return metersFromQuotaSummary(await response.json());
-  } catch {
-    return [];
+      });
+      if (!response.ok) continue;
+      const data: unknown = await response.json();
+      if (quotaBuckets(data).length === 0 || isPlaceholderQuota(data)) continue;
+      return data;
+    } catch {
+      continue;
+    }
   }
+  return null;
+}
+
+async function fetchQuotaSummary(
+  accessToken: string,
+  projectId: string,
+): Promise<UsageMeter[]> {
+  const data = await fetchQuotaDocument(
+    "v1internal:retrieveUserQuotaSummary",
+    accessToken,
+    projectId,
+  );
+  return data ? metersFromQuotaSummary(data) : [];
 }
 
 async function fetchUserQuotaBuckets(
@@ -745,29 +817,21 @@ async function fetchUserQuotaBuckets(
   projectId: string,
 ): Promise<Map<string, JsonRecord>> {
   const entries = new Map<string, JsonRecord>();
-  try {
-    const response = await fetch(
-      "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-      {
-        method: "POST",
-        headers: authHeaders(accessToken, "api"),
-        body: JSON.stringify({ project: projectId }),
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
-    if (!response.ok) return entries;
-    const data = asRecord(await response.json());
-    if (!Array.isArray(data.buckets)) return entries;
-    for (const bucketValue of data.buckets) {
-      const bucket = asRecord(bucketValue);
-      const modelId = String(bucket.modelId || "")
-        .trim()
-        .replace(/^models\//, "");
-      if (!modelId) continue;
-      entries.set(modelId, bucket);
-    }
-  } catch {
-    // Best-effort — catalog quotas still work.
+  const data = asRecord(
+    await fetchQuotaDocument(
+      "v1internal:retrieveUserQuota",
+      accessToken,
+      projectId,
+    ),
+  );
+  if (!Array.isArray(data.buckets)) return entries;
+  for (const bucketValue of data.buckets) {
+    const bucket = asRecord(bucketValue);
+    const modelId = String(bucket.modelId || "")
+      .trim()
+      .replace(/^models\//, "");
+    if (!modelId) continue;
+    entries.set(modelId, bucket);
   }
   return entries;
 }
@@ -876,9 +940,10 @@ export async function fetchAntigravityUsage(
       mapTierToPlan(account.credentials.tierId ?? "") ||
       "Free";
 
-    // Summary (family pools) is authoritative for Gemini/Claude bars. An omitted
-    // remainingFraction is an empty bucket. Catalog quotaInfo often stays at
-    // 1.0 after the pool is exhausted, so it only fills models with no live bucket.
+    // Family bars come from the quota summary. The daily host has the live
+    // pool; prod often returns a full placeholder, which is skipped. Catalog
+    // quotaInfo stays at 1.0, so it cannot fill the tile when both quota
+    // hosts are missing or placeholder.
     const [modelQuota, summaryMeters] = await Promise.all([
       fetchAllModelMeters(accessToken, projectId || undefined),
       projectId
@@ -894,8 +959,10 @@ export async function fetchAntigravityUsage(
         !summaryFamilies.has(familyId) || modelQuota.liveMeterIds.has(meter.id)
       );
     });
-    const familyMeters = aggregateFamilyMeters(modelQuota.meters);
-    const meters = summaryMeters.length > 0 ? summaryMeters : familyMeters;
+    const liveFamilyMeters = aggregateFamilyMeters(
+      modelQuota.meters.filter((meter) => modelQuota.liveMeterIds.has(meter.id)),
+    );
+    const meters = summaryMeters.length > 0 ? summaryMeters : liveFamilyMeters;
 
     return {
       accountId: account.id,
@@ -903,13 +970,10 @@ export async function fetchAntigravityUsage(
       accountLabel: account.credentials.email ?? account.name,
       plan,
       meters,
-      detailMeters: detailMeters.length ? detailMeters : undefined,
+      detailMeters: meters.length && detailMeters.length ? detailMeters : undefined,
       fetchedAt: Date.now(),
-      status: meters.length || detailMeters.length ? "ok" : "unavailable",
-      error:
-        meters.length || detailMeters.length
-          ? undefined
-          : "No Antigravity quota windows returned",
+      status: meters.length ? "ok" : "unavailable",
+      error: meters.length ? undefined : "No Antigravity quota windows returned",
     };
   } catch (error) {
     const message =
