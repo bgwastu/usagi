@@ -82,6 +82,19 @@ function asNumber(value: unknown, fallback = Number.NaN): number {
   return fallback;
 }
 
+/**
+ * Fraction left in [0, 1], or null when the field is absent or not numeric.
+ * Proto3 JSON omits the default 0, so a missing field is not "unknown full".
+ */
+function readRemainingFraction(source: JsonRecord): number | null {
+  if (!Object.hasOwn(source, "remainingFraction")) return null;
+  const value = source.remainingFraction;
+  if (value == null || value === "") return null;
+  const n = asNumber(value, Number.NaN);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(1, n));
+}
+
 function platformInfo(platform: NodeJS.Platform = process.platform): string {
   switch (platform) {
     case "darwin":
@@ -663,12 +676,16 @@ function metersFromQuotaSummary(data: unknown): UsageMeter[] {
       const bucket = asRecord(bucketValue);
       if (bucket.disabled === true) continue;
 
-      const rawFraction = asNumber(bucket.remainingFraction, -1);
-      if (rawFraction < 0) continue;
-
-      const remainingFraction = Math.max(0, Math.min(1, rawFraction));
+      const reported = readRemainingFraction(bucket);
       const resetsAt = parseResetTime(bucket.resetTime);
-      const isUnlimited = !resetsAt && remainingFraction >= 1;
+      const identified =
+        String(bucket.bucketId || "").trim() !== "" || resetsAt != null;
+      // A real bucket with no remainingFraction is empty. Skipping it let a
+      // sibling still at 1.0 (or the stale catalog) render as 100% left.
+      if (reported == null && !identified) continue;
+      const remainingFraction = reported ?? 0;
+      const isUnlimited =
+        reported != null && resetsAt == null && remainingFraction >= 1;
       if (isUnlimited) continue;
 
       const text =
@@ -790,11 +807,15 @@ async function fetchAllModelMeters(
     const live = liveQuota.get(modelId);
     const quotaInfo = asRecord(info.quotaInfo);
     const source =
-      live && Object.keys(live).length > 0 ? live : quotaInfo;
+      live != null && Object.keys(live).length > 0 ? live : quotaInfo;
+    const livePresent = live != null && source === live;
     if (Object.keys(source).length === 0) continue;
 
-    const rawFraction = asNumber(source.remainingFraction, -1);
-    if (rawFraction < 0) continue;
+    const reported = readRemainingFraction(source);
+    // Live quota omits remainingFraction when the bucket is empty. Catalog
+    // quotaInfo stays at 1.0 after that, so it must not replace the live bucket.
+    if (reported == null && !livePresent) continue;
+    const remainingFraction = reported ?? 0;
 
     const label =
       typeof info.displayName === "string" && info.displayName.trim()
@@ -804,23 +825,23 @@ async function fetchAllModelMeters(
     const meter = meterFromQuota({
       id: `model_${slugify(modelId) || modelId}`,
       label,
-      remainingFraction: rawFraction,
+      remainingFraction,
       resetsAt: parseResetTime(source.resetTime),
     });
     if (meter) {
       byId.set(modelId, meter);
-      if (live) liveMeterIds.add(meter.id);
+      if (livePresent) liveMeterIds.add(meter.id);
     }
   }
 
   for (const [modelId, bucket] of liveQuota) {
     if (byId.has(modelId)) continue;
-    const rawFraction = asNumber(bucket.remainingFraction, -1);
-    if (rawFraction < 0) continue;
+    if (Object.keys(bucket).length === 0) continue;
+    const reported = readRemainingFraction(bucket);
     const meter = meterFromQuota({
       id: `model_${slugify(modelId) || modelId}`,
       label: humanizeModelId(modelId),
-      remainingFraction: rawFraction,
+      remainingFraction: reported ?? 0,
       resetsAt: parseResetTime(bucket.resetTime),
     });
     if (meter) {
@@ -855,8 +876,9 @@ export async function fetchAntigravityUsage(
       mapTierToPlan(account.credentials.tierId ?? "") ||
       "Free";
 
-    // Summary (family pools) is authoritative for Gemini/Claude bars; catalog
-    // remainingFraction often stays at 1.0 after the pool is exhausted.
+    // Summary (family pools) is authoritative for Gemini/Claude bars. An omitted
+    // remainingFraction is an empty bucket. Catalog quotaInfo often stays at
+    // 1.0 after the pool is exhausted, so it only fills models with no live bucket.
     const [modelQuota, summaryMeters] = await Promise.all([
       fetchAllModelMeters(accessToken, projectId || undefined),
       projectId
