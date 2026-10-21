@@ -22,13 +22,15 @@ function base64url(buf: Buffer): string {
     .replace(/=+$/, "");
 }
 
-export function createPkceChallenge(): {
+export function createPkceChallenge(stateBytes = 16): {
   state: string;
   codeVerifier: string;
   codeChallenge: string;
 } {
   prune();
-  const state = base64url(randomBytes(16));
+  // claude.ai/oauth/authorize rejects a 16-byte (22-char) state as
+  // "Invalid request format". Claude Code sends 32 bytes.
+  const state = base64url(randomBytes(stateBytes));
   const codeVerifier = base64url(randomBytes(32));
   const codeChallenge = base64url(
     createHash("sha256").update(codeVerifier).digest(),

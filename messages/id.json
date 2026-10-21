@@ -48,6 +48,9 @@
     "codex": {
       "hint": "OAuth · refresh otomatis"
     },
+    "claude": {
+      "hint": "OAuth · refresh otomatis"
+    },
     "antigravity": {
       "hint": "Google OAuth · refresh otomatis"
     },
@@ -113,10 +116,13 @@
     "startOauth": "Mulai OAuth",
     "codexCreateHint": "Buka URL otorisasi, masuk, lalu tempel URL callback localhost. Token akan di-refresh otomatis.",
     "codexEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk lagi, lalu tempel URL callback localhost.",
+    "claudeCreateHint": "Buka URL otorisasi dan masuk. Browser lalu membuka localhost:54545 yang gagal dimuat — salin address bar itu dan tempel di sini. Token akan di-refresh otomatis.",
+    "claudeEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk lagi, lalu tempel URL callback localhost:54545 dari address bar.",
     "antigravityCreateHint": "Buka URL otorisasi, masuk dengan Google, lalu tempel URL callback 127.0.0.1 (halaman mungkin gagal dimuat — salin dari address bar). Token akan di-refresh otomatis.",
     "antigravityEditHint": "Sesi kedaluwarsa atau perlu diperbarui — masuk dengan Google lagi, lalu tempel URL callback 127.0.0.1.",
     "placeholders": {
       "codexName": "personal@email.com",
+      "claudeName": "you@email.com",
       "antigravityName": "you@gmail.com",
       "cursorName": "Cursor personal",
       "tavilyName": "Tavily research",
@@ -133,6 +139,7 @@
       "composioKey": "oak_…",
       "commandCodeKey": "user_…",
       "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…",
+      "claudeOauthCallback": "http://localhost:54545/callback?code=…&state=…",
       "antigravityOauthCallback": "http://127.0.0.1:51121/callback?code=…&state=…"
     },
     "help": {

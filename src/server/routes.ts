@@ -6,9 +6,36 @@ import { deleteAccount, getAccount, listAccounts, reorderAccounts, saveAccount }
 import { DEFAULT_SPAN, type Account, type AccountUsage, type ComposioPlanId } from "@/lib/types";
 import { exchangeAntigravityCode, buildAntigravityAuthorizeUrl } from "@/providers/antigravity";
 import { exchangeCodexCode, buildCodexAuthorizeUrl } from "@/providers/codex";
+import { exchangeClaudeCode, buildClaudeAuthorizeUrl, parseClaudeOAuthCallback } from "@/providers/claude";
+import type { ClaudeCredentials } from "@/lib/types";
 import { normalizeCursorCookie } from "@/providers/cursor";
 import { createOAuthState, createPkceChallenge, parseOAuthCallbackUrl } from "@/lib/oauth-pkce";
 import { saveOAuthState, takeOAuthState } from "@/lib/db";
+
+async function loginClaude(
+  callbackUrl: string,
+): Promise<{ credentials: ClaudeCredentials } | { error: string }> {
+  let parsed: { code: string; state: string };
+  try {
+    parsed = parseClaudeOAuthCallback(callbackUrl);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Invalid Claude callback" };
+  }
+  const taken = await takeOAuthState(parsed.state, "claude");
+  if (!taken?.verifier) return { error: "OAuth state expired — start login again" };
+  try {
+    return {
+      credentials: await exchangeClaudeCode({
+        code: parsed.code,
+        state: parsed.state,
+        codeVerifier: taken.verifier,
+      }),
+    };
+  } catch (error) {
+    await saveOAuthState(parsed.state, taken.verifier, "claude");
+    return { error: error instanceof Error ? error.message : "Claude token exchange failed" };
+  }
+}
 
 export const api = new Hono();
 const publicResult = (result: { account: Account; usage: AccountUsage }) => ({ ...result, account: publicAccount(result.account) });
@@ -78,6 +105,10 @@ api.post("/accounts", async (c) => {
     const apiKey = String(body.apiKey ?? "").trim();
     if (!apiKey) return c.json({ error: "API key required" }, 400);
     account = { id: randomUUID(), provider: body.provider, name, span: body.span ?? DEFAULT_SPAN[body.provider], credentials: { apiKey, ...(body.provider === "exa" && body.keyId ? { keyId: String(body.keyId).trim() } : {}), ...(body.provider === "composio" && body.plan ? { plan: body.plan as ComposioPlanId } : {}) } as Account["credentials"], authStatus: "ok", createdAt: now, updatedAt: now } as Account;
+  } else if (body.provider === "claude" && typeof body.oauthCallbackUrl === "string") {
+    const claudeLogin = await loginClaude(body.oauthCallbackUrl);
+    if ("error" in claudeLogin) return c.json({ error: claudeLogin.error }, 400);
+    account = { id: randomUUID(), provider: "claude", name: name || claudeLogin.credentials.email || "Claude", span: body.span ?? DEFAULT_SPAN.claude, credentials: claudeLogin.credentials, authStatus: "ok", createdAt: now, updatedAt: now };
   } else if (body.provider === "codex" && typeof body.oauthCallbackUrl === "string") {
     const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl);
     const taken = await takeOAuthState(state, "codex");
@@ -102,6 +133,11 @@ api.patch("/accounts/:id", async (c) => {
   if (next.provider === "opencode-go" && typeof body.cookie === "string" && body.cookie.trim()) next = { ...next, credentials: { cookie: body.cookie.trim(), ...(typeof body.workspaceId === "string" && body.workspaceId.trim() ? { workspaceId: body.workspaceId.trim() } : {}) } };
   if (next.provider === "cursor" && typeof body.cookie === "string" && body.cookie.trim()) next = { ...next, credentials: { cookie: normalizeCursorCookie(body.cookie) } };
   if ((next.provider === "tavily" || next.provider === "exa" || next.provider === "composio" || next.provider === "command-code") && typeof body.apiKey === "string" && body.apiKey.trim()) next = { ...next, credentials: { ...next.credentials, apiKey: body.apiKey.trim(), ...(next.provider === "exa" && typeof body.keyId === "string" ? { keyId: body.keyId.trim() || undefined } : {}), ...(next.provider === "composio" && typeof body.plan === "string" && body.plan ? { plan: body.plan as ComposioPlanId } : {}) } } as Account;
+  if (next.provider === "claude" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) {
+    const claudeLogin = await loginClaude(body.oauthCallbackUrl);
+    if ("error" in claudeLogin) return c.json({ error: claudeLogin.error }, 400);
+    next = { ...next, credentials: claudeLogin.credentials, authStatus: "ok", authError: undefined };
+  }
   if (next.provider === "codex" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) { const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl); const taken = await takeOAuthState(state, "codex"); if (!taken?.verifier) return c.json({ error: "OAuth state expired — start login again" }, 400); next = { ...next, credentials: await exchangeCodexCode({ code, codeVerifier: taken.verifier }), authStatus: "ok", authError: undefined }; }
   if (next.provider === "antigravity" && typeof body.oauthCallbackUrl === "string" && body.oauthCallbackUrl.trim()) { const { code, state } = parseOAuthCallbackUrl(body.oauthCallbackUrl); if (!(await takeOAuthState(state, "antigravity"))) return c.json({ error: "OAuth state expired — start login again" }, 400); next = { ...next, credentials: await exchangeAntigravityCode({ code }), authStatus: "ok", authError: undefined }; }
   await saveAccount(next); invalidateUsageCache(next.id);
@@ -109,4 +145,5 @@ api.patch("/accounts/:id", async (c) => {
 });
 
 api.post("/oauth/codex/start", async (c) => { const { state, codeChallenge, codeVerifier } = createPkceChallenge(); await saveOAuthState(state, codeVerifier, "codex"); return c.json({ authorizeUrl: buildCodexAuthorizeUrl({ state, codeChallenge }), state }); });
+api.post("/oauth/claude/start", async (c) => { const { state, codeChallenge, codeVerifier } = createPkceChallenge(32); await saveOAuthState(state, codeVerifier, "claude"); return c.json({ authorizeUrl: buildClaudeAuthorizeUrl({ state, codeChallenge }), state }); });
 api.post("/oauth/antigravity/start", async (c) => { const { state } = createOAuthState(); await saveOAuthState(state, null, "antigravity"); return c.json({ authorizeUrl: buildAntigravityAuthorizeUrl({ state }), state }); });

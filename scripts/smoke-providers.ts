@@ -10,6 +10,10 @@ import {
   refreshCodexCredentials,
 } from "../src/providers/codex.ts";
 import {
+  fetchClaudeUsage,
+  refreshClaudeCredentials,
+} from "../src/providers/claude.ts";
+import {
   fetchAntigravityUsage,
   refreshAntigravityCredentials,
 } from "../src/providers/antigravity.ts";
@@ -32,6 +36,22 @@ for (const account of db.accounts) {
         working.authStatus,
       );
       // persist refreshed tokens if changed
+      if (refreshed.changed) {
+        const idx = db.accounts.findIndex((a) => a.id === working.id);
+        if (idx >= 0) db.accounts[idx] = working;
+        writeFileSync("./data/data.json", JSON.stringify(db, null, 2));
+      }
+    }
+
+    if (working.provider === "claude") {
+      const refreshed = await refreshClaudeCredentials(working);
+      working = refreshed.account;
+      console.log(
+        "claude refresh changed=",
+        refreshed.changed,
+        "auth=",
+        working.authStatus,
+      );
       if (refreshed.changed) {
         const idx = db.accounts.findIndex((a) => a.id === working.id);
         if (idx >= 0) db.accounts[idx] = working;
@@ -70,7 +90,9 @@ for (const account of db.accounts) {
                   ? await fetchOpenCodeGoUsage(working)
                   : working.provider === "antigravity"
                     ? await fetchAntigravityUsage(working)
-                    : await fetchCodexUsage(working);
+                    : working.provider === "claude"
+                      ? await fetchClaudeUsage(working)
+                      : await fetchCodexUsage(working);
 
     console.log(
       working.provider,

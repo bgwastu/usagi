@@ -1,6 +1,7 @@
 export type ProviderId =
   | "opencode-go"
   | "codex"
+  | "claude"
   | "antigravity"
   | "cursor"
   | "tavily"
@@ -39,6 +40,15 @@ export type CodexCredentials = {
   email?: string;
   expiresAt?: number;
   lastRefresh?: number;
+};
+
+export type ClaudeCredentials = {
+  accessToken: string;
+  refreshToken: string;
+  email?: string;
+  expiresAt?: number;
+  lastRefresh?: number;
+  scope?: string;
 };
 
 export type AntigravityCredentials = {
@@ -103,6 +113,10 @@ export type Account =
   | (AccountBase & {
       provider: "codex";
       credentials: CodexCredentials;
+    })
+  | (AccountBase & {
+      provider: "claude";
+      credentials: ClaudeCredentials;
     })
   | (AccountBase & {
       provider: "antigravity";
@@ -172,6 +186,14 @@ export const PROVIDER_META: Record<
     credentialHint: "OAuth · auto-refresh",
     minRefreshMs: 5_000,
   },
+  claude: {
+    displayName: "Claude",
+    credentialHint: "OAuth · auto-refresh",
+    // /api/oauth/usage is rate-limited per access token. 3 minutes is the
+    // interval community clients treat as safe when the claude-code user agent is set.
+    minRefreshMs: 180_000,
+    rateLimitBackoffMs: 5 * 60_000,
+  },
   antigravity: {
     displayName: "Antigravity",
     credentialHint: "Google OAuth · auto-refresh",
@@ -215,6 +237,7 @@ export const PROVIDER_META: Record<
 
 export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   codex: "2x1",
+  claude: "2x1",
   antigravity: "2x1",
   "opencode-go": "2x1",
   cursor: "2x1",

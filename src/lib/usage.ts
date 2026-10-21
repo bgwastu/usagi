@@ -5,6 +5,7 @@ import type {
   ProviderId,
 } from "@/lib/types";
 import { fetchCodexUsage, refreshCodexCredentials } from "@/providers/codex";
+import { fetchClaudeUsage, refreshClaudeCredentials } from "@/providers/claude";
 import {
   fetchAntigravityUsage,
   refreshAntigravityCredentials,
@@ -94,6 +95,8 @@ function credentialCooldownKey(account: Account): string {
       return `cursor:${account.credentials.cookie}`;
     case "codex":
       return `codex:${account.credentials.refreshToken}`;
+    case "claude":
+      return `claude:${account.credentials.refreshToken}`;
     case "antigravity":
       return `antigravity:${account.credentials.refreshToken}`;
     default: {
@@ -243,6 +246,14 @@ export async function fetchUsageForAccount(
       }
     }
 
+    if (working.provider === "claude") {
+      const refreshed = await refreshClaudeCredentials(working);
+      if (refreshed.changed) {
+        working = refreshed.account;
+        await updateAccount(working);
+      }
+    }
+
     if (working.provider === "antigravity") {
       const refreshed = await refreshAntigravityCredentials(working);
       if (refreshed.changed) {
@@ -265,6 +276,20 @@ export async function fetchUsageForAccount(
       // refreshes once on 401, then retries the usage request.
       if (working.provider === "codex" && isAuthExpiredUsage(usage)) {
         const refreshed = await refreshCodexCredentials({
+          ...working,
+          credentials: { ...working.credentials, expiresAt: 0 },
+        });
+        working = refreshed.account;
+        await updateAccount(working);
+        if (working.authStatus === "ok") {
+          usage = await fetchProviderUsage(working, {
+            exaDetail: hasFreshMeters ? "full" : "fast",
+          });
+        }
+      }
+
+      if (working.provider === "claude" && isAuthExpiredUsage(usage)) {
+        const refreshed = await refreshClaudeCredentials({
           ...working,
           credentials: { ...working.credentials, expiresAt: 0 },
         });
@@ -321,6 +346,8 @@ async function fetchProviderUsage(
   switch (account.provider) {
     case "codex":
       return fetchCodexUsage(account);
+    case "claude":
+      return fetchClaudeUsage(account);
     case "antigravity":
       return fetchAntigravityUsage(account);
     case "opencode-go":

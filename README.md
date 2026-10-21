@@ -51,6 +51,7 @@ The board UI still logs in with a cookie. Browser session cookies and the Bearer
 ## Providers
 
 - **Codex** — OAuth (PKCE), auto-refresh · 5-hour + weekly windows
+- **Claude** — Claude Code OAuth (PKCE, localhost:54545 callback), auto-refresh · 5-hour session + weekly windows (Sonnet, Opus, and extra usage when the account has them)
 - **Antigravity** — Google OAuth (desktop client, no PKCE), auto-refresh · Gemini / Claude & Other bars (tap a bar to expand models on the tile)
 - **OpenCode Go** — session cookie; workspace ID optional · 5-hour + weekly (+ monthly if present)
 - **Cursor** — `WorkosCursorSessionToken` cookie · plan / Auto+Composer / API / on-demand (unofficial dashboard API)

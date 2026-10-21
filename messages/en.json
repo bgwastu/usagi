@@ -48,6 +48,9 @@
     "codex": {
       "hint": "OAuth · auto-refresh"
     },
+    "claude": {
+      "hint": "OAuth · auto-refresh"
+    },
     "antigravity": {
       "hint": "Google OAuth · auto-refresh"
     },
@@ -113,10 +116,13 @@
     "startOauth": "Start OAuth",
     "codexCreateHint": "Open the authorize URL, sign in, then paste the localhost callback URL. Tokens refresh automatically.",
     "codexEditHint": "Session expired or needs refresh — sign in again, then paste the localhost callback URL.",
+    "claudeCreateHint": "Open the authorize URL and sign in. The browser then opens localhost:54545, which will fail to load — copy that address bar and paste it here. Tokens refresh automatically.",
+    "claudeEditHint": "Session expired or needs refresh — sign in again, then paste the localhost:54545 callback URL from the address bar.",
     "antigravityCreateHint": "Open the authorize URL, sign in with Google, then paste the 127.0.0.1 callback URL (the page may fail to load — copy the address bar). Tokens refresh automatically.",
     "antigravityEditHint": "Session expired or needs refresh — sign in with Google again, then paste the 127.0.0.1 callback URL.",
     "placeholders": {
       "codexName": "personal@email.com",
+      "claudeName": "you@email.com",
       "antigravityName": "you@gmail.com",
       "cursorName": "Cursor personal",
       "tavilyName": "Tavily research",
@@ -133,6 +139,7 @@
       "composioKey": "oak_…",
       "commandCodeKey": "user_…",
       "oauthCallback": "http://localhost:1455/auth/callback?code=…&state=…",
+      "claudeOauthCallback": "http://localhost:54545/callback?code=…&state=…",
       "antigravityOauthCallback": "http://127.0.0.1:51121/callback?code=…&state=…"
     },
     "help": {

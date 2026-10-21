@@ -31,6 +31,18 @@ type AccountWizardProps = {
 
 type Step = "provider" | "credentials";
 
+type BrowserOAuthProvider = "codex" | "antigravity" | "claude";
+
+function isBrowserOAuth(provider: ProviderId): provider is BrowserOAuthProvider {
+  return provider === "codex" || provider === "antigravity" || provider === "claude";
+}
+
+function oauthStartPath(provider: BrowserOAuthProvider): string {
+  if (provider === "antigravity") return "/api/oauth/antigravity/start";
+  if (provider === "claude") return "/api/oauth/claude/start";
+  return "/api/oauth/codex/start";
+}
+
 const fieldClass =
   "w-full rounded-sm border border-rule bg-paper-2 px-3.5 py-2.5 text-ink transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
@@ -99,7 +111,7 @@ function WizardPanel({
   const oauthPreparing =
     oauthRequesting ||
     (step === "credentials" &&
-      (provider === "codex" || provider === "antigravity") &&
+      isBrowserOAuth(provider) &&
       authorizeUrl === null &&
       error === null);
 
@@ -116,14 +128,11 @@ function WizardPanel({
     };
   }, [onClose]);
 
-  async function startOauth(forProvider: "codex" | "antigravity") {
+  async function startOauth(forProvider: BrowserOAuthProvider) {
     setOauthRequesting(true);
     setError(null);
     try {
-      const path =
-        forProvider === "antigravity"
-          ? "/api/oauth/antigravity/start"
-          : "/api/oauth/codex/start";
+      const path = oauthStartPath(forProvider);
       const res = await fetch(path, { method: "POST" });
       const json = (await res.json()) as {
         authorizeUrl?: string;
@@ -148,16 +157,13 @@ function WizardPanel({
   useEffect(() => {
     if (
       step !== "credentials" ||
-      (provider !== "codex" && provider !== "antigravity")
+      !isBrowserOAuth(provider)
     ) {
       return;
     }
 
     const controller = new AbortController();
-    const path =
-      provider === "antigravity"
-        ? "/api/oauth/antigravity/start"
-        : "/api/oauth/codex/start";
+    const path = oauthStartPath(provider);
 
     void (async () => {
       try {
@@ -200,6 +206,8 @@ function WizardPanel({
     switch (id) {
       case "codex":
         return t("placeholders.codexName");
+      case "claude":
+        return t("placeholders.claudeName");
       case "antigravity":
         return t("placeholders.antigravityName");
       case "cursor":
@@ -256,7 +264,7 @@ function WizardPanel({
     }
 
     if (
-      (provider === "codex" || provider === "antigravity") &&
+      isBrowserOAuth(provider) &&
       mode === "create" &&
       !oauthCallbackUrl.trim()
     ) {
@@ -578,7 +586,7 @@ function WizardPanel({
               </label>
             ) : null}
 
-            {provider === "codex" || provider === "antigravity" ? (
+            {isBrowserOAuth(provider) ? (
               <>
                 <div className="flex flex-col gap-3 rounded-md border border-dashed border-rule bg-paper-2 p-4">
                   <p className="m-0 text-sm text-ink-2">
@@ -586,9 +594,13 @@ function WizardPanel({
                       ? mode === "edit"
                         ? t("antigravityEditHint")
                         : t("antigravityCreateHint")
-                      : mode === "edit"
-                        ? t("codexEditHint")
-                        : t("codexCreateHint")}
+                      : provider === "claude"
+                        ? mode === "edit"
+                          ? t("claudeEditHint")
+                          : t("claudeCreateHint")
+                        : mode === "edit"
+                          ? t("codexEditHint")
+                          : t("codexCreateHint")}
                   </p>
                   {authorizeUrl ? (
                     <a
@@ -605,9 +617,7 @@ function WizardPanel({
                       className={`${secondaryBtnClass} self-start`}
                       disabled={oauthPreparing}
                       onClick={() => {
-                        void startOauth(
-                          provider === "antigravity" ? "antigravity" : "codex",
-                        );
+                        void startOauth(provider);
                       }}
                     >
                       {oauthPreparing
@@ -625,7 +635,9 @@ function WizardPanel({
                     placeholder={
                       provider === "antigravity"
                         ? t("placeholders.antigravityOauthCallback")
-                        : t("placeholders.oauthCallback")
+                        : provider === "claude"
+                          ? t("placeholders.claudeOauthCallback")
+                          : t("placeholders.oauthCallback")
                     }
                     rows={3}
                   />
