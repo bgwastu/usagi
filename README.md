@@ -48,6 +48,21 @@ curl -H "Authorization: Bearer $USAGI_PASSWORD" http://localhost:3000/api
 
 The board UI still logs in with a cookie. Browser session cookies and the Bearer password both satisfy the same gate. Auth routes (`/api/auth/*`) stay public so the login form can run.
 
+### Provider catalog
+
+`GET /api` also carries a `providers` map, and `GET /api/providers` returns the same map on its own (a cheap static read that never triggers a provider refresh). It is what a client needs to label and illustrate a provider without shipping its own copy of the names and marks:
+
+```json
+{
+  "providers": {
+    "codex": { "name": "Codex", "iconPath": "/providers/codex.svg" },
+    "claude": { "name": "Claude", "iconPath": "/providers/claude.svg" }
+  }
+}
+```
+
+`iconPath` is root-relative — resolve it against the Usagi origin that served the API. The SVGs themselves are plain static files under `/providers/<provider id>.svg`, served without auth, and are monochrome (`currentColor`) and viewBox-only, so a consumer chooses the size and the colour (an `<img>` cannot inherit `currentColor`; use it as a CSS `mask-image`, or inline the markup). They are generated from the app's own React icons — run `bun run icons` after editing `src/components/provider-icons.tsx`; `bun run icons:check` fails if the two have drifted.
+
 ## Providers
 
 - **Codex** — OAuth (PKCE), auto-refresh · 5-hour + weekly windows

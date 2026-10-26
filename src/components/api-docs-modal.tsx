@@ -107,6 +107,9 @@ export function ApiDocsModal({ onClose }: ApiDocsModalProps) {
             <p className="m-0 mt-1.5 font-outlier text-[0.8125rem] text-ink">
               GET /api
             </p>
+            <p className="m-0 mt-1 font-outlier text-[0.8125rem] text-ink">
+              GET /api/providers
+            </p>
             <p className="m-0 mt-2 text-sm text-ink-2">{t("forceHint")}</p>
           </div>
 

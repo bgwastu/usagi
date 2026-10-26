@@ -246,3 +246,28 @@ export const DEFAULT_SPAN: Record<ProviderId, TileSpan> = {
   composio: "1x2",
   "command-code": "2x1",
 };
+
+/**
+ * Provider presentation data for the JSON API, so a client (the BB plugin,
+ * a script, anything else reading `/api`) can label and illustrate a provider
+ * without keeping its own copy of the names and marks.
+ */
+export type ProviderCatalog = Record<
+  ProviderId,
+  {
+    name: string;
+    /** Root-relative; resolve it against the Usagi origin that served the API. */
+    iconPath: string;
+  }
+>;
+
+/** Icons live in `public/providers/<provider id>.svg` — see `bun run icons`. */
+export const PROVIDER_CATALOG: ProviderCatalog = Object.fromEntries(
+  (Object.keys(PROVIDER_META) as ProviderId[]).map((provider) => [
+    provider,
+    {
+      name: PROVIDER_META[provider].displayName,
+      iconPath: `/providers/${provider}.svg`,
+    },
+  ]),
+) as ProviderCatalog;

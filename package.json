@@ -1,6 +1,6 @@
 {
   "name": "usagi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,8 @@
     "start": "bun src/server/node.ts",
     "db:migrate": "bun src/server/migrate.ts",
     "lint": "eslint src vite.config.ts drizzle.config.ts",
+    "icons": "bun scripts/generate-provider-icons.ts",
+    "icons:check": "bun scripts/generate-provider-icons.ts --check",
     "typecheck": "tsc --noEmit",
     "postinstall": "bun scripts/patch-rgl.ts"
   },

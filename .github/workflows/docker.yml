@@ -41,6 +41,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Provider icons match the app components
+        run: bun run icons:check
+
       - name: Build client
         run: bun run build
 

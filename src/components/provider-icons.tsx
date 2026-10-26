@@ -1,9 +1,9 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type ReactElement } from "react";
 import type { ProviderId } from "@/lib/types";
 
-type IconProps = {
+export type IconProps = {
   size?: number;
   className?: string;
 };
@@ -212,6 +212,27 @@ export function CommandCodeIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/**
+ * Every provider's tile/header mark, keyed by provider id.
+ * `scripts/generate-provider-icons.ts` walks this map to emit the standalone
+ * `public/providers/<id>.svg` files the JSON API points at, so the app and the
+ * API can never disagree about a provider's mark.
+ */
+export const PROVIDER_ICONS: Record<
+  ProviderId,
+  (props: IconProps) => ReactElement
+> = {
+  codex: CodexIcon,
+  claude: ClaudeIcon,
+  antigravity: AntigravityIcon,
+  cursor: CursorIcon,
+  tavily: TavilyIcon,
+  exa: ExaIcon,
+  composio: ComposioIcon,
+  "command-code": CommandCodeIcon,
+  "opencode-go": OpenCodeGoIcon,
+};
+
 export function ProviderIcon({
   provider,
   size = 16,
@@ -221,29 +242,6 @@ export function ProviderIcon({
   size?: number;
   className?: string;
 }) {
-  if (provider === "codex") {
-    return <CodexIcon size={size} className={className} />;
-  }
-  if (provider === "claude") {
-    return <ClaudeIcon size={size} className={className} />;
-  }
-  if (provider === "antigravity") {
-    return <AntigravityIcon size={size} className={className} />;
-  }
-  if (provider === "cursor") {
-    return <CursorIcon size={size} className={className} />;
-  }
-  if (provider === "tavily") {
-    return <TavilyIcon size={size} className={className} />;
-  }
-  if (provider === "exa") {
-    return <ExaIcon size={size} className={className} />;
-  }
-  if (provider === "composio") {
-    return <ComposioIcon size={size} className={className} />;
-  }
-  if (provider === "command-code") {
-    return <CommandCodeIcon size={size} className={className} />;
-  }
-  return <OpenCodeGoIcon size={size} className={className} />;
+  const Icon = PROVIDER_ICONS[provider] ?? OpenCodeGoIcon;
+  return <Icon size={size} className={className} />;
 }

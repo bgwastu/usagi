@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { authStatus, login, logout, requireAuth } from "@/server/auth";
 import { buildAccountShell, fetchUsageForAccount, refreshAccountUsages, invalidateUsageCache, publicAccount } from "@/lib/usage";
 import { deleteAccount, getAccount, listAccounts, reorderAccounts, saveAccount } from "@/lib/db";
-import { DEFAULT_SPAN, type Account, type AccountUsage, type ComposioPlanId } from "@/lib/types";
+import { DEFAULT_SPAN, PROVIDER_CATALOG, type Account, type AccountUsage, type ComposioPlanId } from "@/lib/types";
 import { exchangeAntigravityCode, buildAntigravityAuthorizeUrl } from "@/providers/antigravity";
 import { exchangeCodexCode, buildCodexAuthorizeUrl } from "@/providers/codex";
 import { exchangeClaudeCode, buildClaudeAuthorizeUrl, parseClaudeOAuthCallback } from "@/providers/claude";
@@ -53,9 +53,16 @@ api.get("/", requireAuth, async (c) => {
   const force = c.req.query("force") === "1";
   return c.json({
     generatedAt: Date.now(),
+    providers: PROVIDER_CATALOG,
     accounts: await refreshAccountUsages(await listAccounts(), { force }),
   });
 });
+
+/**
+ * Provider names and icon locations on their own — a cheap static read for
+ * clients that want the catalog without triggering a live provider refresh.
+ */
+api.get("/providers", requireAuth, (c) => c.json({ providers: PROVIDER_CATALOG }));
 
 api.use("/accounts/*", requireAuth);
 api.use("/accounts", requireAuth);
